@@ -29,7 +29,7 @@
       "destination": "https://api.example.com/$1"
     },
     {
-      "source": "/(?!static|.*\\..*|service-worker\\.js|manifest\\.json|favicon\\.ico)(.*)",
+      "source": "/:path((?!static|.*\\..*|service-worker\\.js|manifest\\.json|favicon\\.ico).*)",
       "destination": "/index.html"
     }
   ],
