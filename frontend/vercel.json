@@ -25,7 +25,11 @@
   ],
   "rewrites": [
     {
-      "source": "/(.*)",
+      "source": "/api/(.*)",
+      "destination": "https://api.example.com/$1"
+    },
+    {
+      "source": "/(?!static|.*\\..*|service-worker\\.js|manifest\\.json|favicon\\.ico)(.*)",
       "destination": "/index.html"
     }
   ],
