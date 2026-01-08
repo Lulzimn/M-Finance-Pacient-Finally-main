@@ -37,11 +37,6 @@ export default function LoginPage() {
     window.location.href = `${API}/auth/google/login`;
   };
 
-  const handleMicrosoftLogin = () => {
-    // Direct OAuth with backend
-    window.location.href = `${API}/auth/microsoft/login`;
-  };
-
   const handleDevLogin = async (e) => {
     e.preventDefault();
     setLoading(true);
@@ -186,7 +181,7 @@ export default function LoginPage() {
             <Button
               onClick={handleGoogleLogin}
               data-testid="google-login-btn"
-              className="w-full bg-white border-2 border-slate-200 text-slate-700 hover:bg-slate-50 hover:border-slate-300 py-6 rounded-xl font-medium transition-all flex items-center justify-center gap-3 mb-3"
+              className="w-full bg-white border-2 border-slate-200 text-slate-700 hover:bg-slate-50 hover:border-slate-300 py-6 rounded-xl font-medium transition-all flex items-center justify-center gap-3"
             >
               <svg className="w-5 h-5" viewBox="0 0 24 24">
                 <path
@@ -207,20 +202,6 @@ export default function LoginPage() {
                 />
               </svg>
               Vazhdo me Google
-            </Button>
-
-            {/* Microsoft/Outlook Login Button */}
-            <Button
-              onClick={handleMicrosoftLogin}
-              className="w-full bg-white border-2 border-slate-200 text-slate-700 hover:bg-slate-50 hover:border-slate-300 py-6 rounded-xl font-medium transition-all flex items-center justify-center gap-3"
-            >
-              <svg className="w-5 h-5" viewBox="0 0 23 23" fill="none">
-                <path d="M0 0h11v11H0z" fill="#f25022"/>
-                <path d="M12 0h11v11H12z" fill="#00a4ef"/>
-                <path d="M0 12h11v11H0z" fill="#7fba00"/>
-                <path d="M12 12h11v11H12z" fill="#ffb900"/>
-              </svg>
-              Vazhdo me Microsoft / Outlook
             </Button>
 
             <div className="mt-8 text-center">

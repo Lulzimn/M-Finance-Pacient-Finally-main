@@ -43,19 +43,6 @@ oauth.register(
     client_kwargs={'scope': 'openid email profile'}
 )
 
-# Microsoft OAuth
-oauth.register(
-    name='microsoft',
-    client_id=os.environ.get('MICROSOFT_CLIENT_ID'),
-    client_secret=os.environ.get('MICROSOFT_CLIENT_SECRET'),
-    authorize_url='https://login.microsoftonline.com/common/oauth2/v2.0/authorize',
-    authorize_params=None,
-    access_token_url='https://login.microsoftonline.com/common/oauth2/v2.0/token',
-    access_token_params=None,
-    refresh_token_url=None,
-    client_kwargs={'scope': 'openid email profile'}
-)
-
 # Lockdown mode to disable all non-auth endpoints during personalization
 LOCKDOWN_MODE = os.environ.get('LOCKDOWN_MODE', 'false').lower() == 'true'
 LOCKDOWN_ALLOWED_PATHS = {
@@ -501,7 +488,7 @@ async def process_oauth_user(email: str, name: str, picture: Optional[str] = Non
 @api_router.get("/auth/session")
 async def process_session(session_id: str, response: Response) -> Dict[str, Any]:
     """Legacy endpoint - kept for backwards compatibility but not used"""
-    raise HTTPException(status_code=410, detail="Kjo metodë e autentikimit nuk përdoret më. Ju lutemi përdorni Google ose Microsoft OAuth.")
+    raise HTTPException(status_code=410, detail="Kjo metodë e autentikimit nuk përdoret më. Ju lutemi përdorni Google OAuth.")
 
 @api_router.get("/auth/me")
 async def get_me(request: Request) -> Dict[str, Any]:
