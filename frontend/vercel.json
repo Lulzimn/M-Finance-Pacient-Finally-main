@@ -1,8 +1,8 @@
 {
-  "buildCommand": "npm install --legacy-peer-deps && npm run build",
+  "buildCommand": "npm install --legacy-peer-deps --force && npm run build",
   "outputDirectory": "build",
   "framework": "create-react-app",
-  "installCommand": "npm install --legacy-peer-deps",
+  "installCommand": "npm install --legacy-peer-deps --force",
   "rewrites": [
     {
       "source": "/(.*)",
@@ -11,6 +11,7 @@
   ],
   "env": {
     "GENERATE_SOURCEMAP": "false",
-    "CI": "false"
+    "CI": "false",
+    "NPM_CONFIG_LEGACY_PEER_DEPS": "true"
   }
 }
