@@ -77,6 +77,11 @@ self.addEventListener('fetch', event => {
   }
 
   // Static assets: Cache-first with network fallback
+  // Skip caching for non-http(s) requests (e.g., chrome-extension://)
+  if (!request.url.startsWith('http://') && !request.url.startsWith('https://')) {
+    return;
+  }
+
   event.respondWith(
     caches.match(request).then(cached => {
       if (cached) {
