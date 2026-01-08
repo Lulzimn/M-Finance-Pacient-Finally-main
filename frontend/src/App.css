@@ -1,0 +1,446 @@
+/* M-Dental App Styles */
+
+/* Logo */
+.logo-text {
+  font-family: 'Manrope', sans-serif;
+  font-weight: 800;
+  letter-spacing: -0.05em;
+}
+
+/* Stat cards */
+.stat-card {
+  @apply bg-white rounded-xl border border-slate-200 p-6 shadow-sm;
+  transition: box-shadow 0.2s ease, transform 0.2s ease;
+}
+
+.stat-card:hover {
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.06);
+  transform: translateY(-2px);
+}
+
+.stat-value {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 2rem;
+  font-weight: 700;
+  line-height: 1;
+}
+
+.stat-label {
+  @apply text-slate-500 text-sm font-medium mt-1;
+}
+
+/* Inflow/Outflow colors */
+.inflow-color {
+  color: #10b981;
+}
+
+.outflow-color {
+  color: #ef4444;
+}
+
+.inflow-bg {
+  background-color: #ecfdf5;
+}
+
+.outflow-bg {
+  background-color: #fef2f2;
+}
+
+/* Currency badge */
+.currency-badge {
+  @apply inline-flex items-center px-2 py-0.5 rounded text-xs font-medium;
+}
+
+.currency-mkd {
+  @apply bg-sky-100 text-sky-700;
+}
+
+.currency-eur {
+  @apply bg-amber-100 text-amber-700;
+}
+
+/* Action buttons */
+.action-btn {
+  @apply p-2 rounded-lg transition-colors;
+}
+
+.action-btn-edit {
+  @apply hover:bg-sky-50 text-sky-600;
+}
+
+.action-btn-delete {
+  @apply hover:bg-red-50 text-red-500;
+}
+
+/* Form styles */
+.form-group {
+  @apply space-y-2;
+}
+
+.form-label {
+  @apply text-sm font-medium text-slate-700;
+}
+
+.form-input {
+  @apply w-full px-3 py-2 border border-slate-200 rounded-lg focus:ring-2 focus:ring-sky-500/20 focus:border-sky-500 transition-all;
+}
+
+.form-select {
+  @apply w-full px-3 py-2 border border-slate-200 rounded-lg focus:ring-2 focus:ring-sky-500/20 focus:border-sky-500 transition-all bg-white;
+}
+
+/* Empty state */
+.empty-state {
+  @apply text-center py-12;
+}
+
+.empty-state-icon {
+  @apply w-16 h-16 mx-auto text-slate-300 mb-4;
+}
+
+.empty-state-text {
+  @apply text-slate-500 text-lg;
+}
+
+/* Login page */
+.login-container {
+  min-height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: linear-gradient(135deg, #f8fafc 0%, #e2e8f0 100%);
+}
+
+.login-card {
+  @apply bg-white rounded-2xl shadow-xl p-8 w-full max-w-md;
+  animation: fadeIn 0.4s ease-out;
+}
+
+/* Chart container */
+.chart-container {
+  @apply bg-white rounded-xl border border-slate-200 p-6;
+}
+
+/* Alert box */
+.alert-warning {
+  @apply bg-amber-50 border border-amber-200 rounded-lg p-4 flex items-start gap-3;
+}
+
+.alert-info {
+  @apply bg-sky-50 border border-sky-200 rounded-lg p-4 flex items-start gap-3;
+}
+
+/* Responsive sidebar */
+@media (max-width: 768px) {
+  .sidebar-mobile {
+    @apply fixed inset-0 z-50 bg-slate-900/80 backdrop-blur-sm;
+  }
+  
+  .sidebar-content {
+    @apply w-64 h-full bg-slate-900;
+    animation: slideIn 0.3s ease-out;
+  }
+}
+
+/* Dashboard grid */
+.dashboard-grid {
+  display: grid;
+  grid-template-columns: repeat(12, 1fr);
+  gap: 1.5rem;
+}
+
+@media (max-width: 1024px) {
+  .dashboard-grid {
+    grid-template-columns: repeat(6, 1fr);
+  }
+}
+
+@media (max-width: 640px) {
+  .dashboard-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* ============================================
+   RESPONSIVE DESIGN - Mobile-First Approach
+   ============================================ */
+
+/* Base: Mobile (320px - 480px) */
+@media (max-width: 480px) {
+  /* Typography - Optimize for small screens */
+  body {
+    font-size: 14px;
+  }
+  
+  h1 { font-size: 1.5rem; }
+  h2 { font-size: 1.25rem; }
+  h3 { font-size: 1.1rem; }
+  
+  /* Layout - Stack vertically */
+  .main-layout {
+    flex-direction: column;
+  }
+  
+  .sidebar {
+    width: 100% !important;
+    position: fixed;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    height: auto;
+    max-height: 60px;
+    overflow-x: auto;
+    overflow-y: hidden;
+    border-top: 1px solid #e2e8f0;
+    display: flex;
+    flex-direction: row;
+    padding: 0.5rem;
+    z-index: 40;
+  }
+  
+  .content {
+    padding-bottom: 70px;
+    padding: 1rem 0.75rem 70px 0.75rem;
+  }
+  
+  /* Cards - Reduce padding on mobile */
+  .stat-card {
+    padding: 1rem;
+  }
+  
+  .stat-value {
+    font-size: 1.5rem;
+  }
+  
+  /* Buttons - Touch-friendly sizes */
+  button, a[role="button"] {
+    min-height: 44px;
+    min-width: 44px;
+    padding: 0.75rem 1rem;
+  }
+  
+  /* Table - Horizontal scroll on mobile */
+  table {
+    width: 100%;
+    overflow-x: auto;
+    display: block;
+  }
+  
+  /* Form inputs */
+  input, select, textarea {
+    font-size: 16px; /* Prevents zoom on iOS */
+    min-height: 44px;
+  }
+  
+  /* Grid layouts */
+  .grid {
+    grid-template-columns: 1fr;
+    gap: 0.75rem;
+  }
+  
+  /* Modals/Dialogs */
+  .modal, dialog {
+    max-height: 90vh;
+    width: 95%;
+  }
+  
+  /* Spacing - Tighter on mobile */
+  .container {
+    margin: 0;
+    padding: 0.75rem;
+  }
+}
+
+/* Tablet (481px - 768px) */
+@media (min-width: 481px) and (max-width: 768px) {
+  body {
+    font-size: 15px;
+  }
+  
+  h1 { font-size: 1.75rem; }
+  h2 { font-size: 1.5rem; }
+  
+  .sidebar {
+    width: 250px;
+  }
+  
+  .content {
+    margin-left: 250px;
+    padding: 1.5rem;
+  }
+  
+  .stat-card {
+    padding: 1.25rem;
+  }
+  
+  .stat-value {
+    font-size: 1.75rem;
+  }
+  
+  /* Two-column layouts on tablet */
+  .grid {
+    grid-template-columns: repeat(2, 1fr);
+    gap: 1rem;
+  }
+  
+  input, select, textarea {
+    min-height: 44px;
+  }
+}
+
+/* Tablet Landscape & Small Desktop (769px - 1024px) */
+@media (min-width: 769px) and (max-width: 1024px) {
+  body {
+    font-size: 15px;
+  }
+  
+  h1 { font-size: 2rem; }
+  h2 { font-size: 1.5rem; }
+  
+  .sidebar {
+    width: 280px;
+  }
+  
+  .content {
+    margin-left: 280px;
+    padding: 2rem;
+  }
+  
+  .stat-card {
+    padding: 1.5rem;
+  }
+  
+  .stat-value {
+    font-size: 2rem;
+  }
+  
+  /* Three-column layouts */
+  .grid {
+    grid-template-columns: repeat(3, 1fr);
+    gap: 1.25rem;
+  }
+  
+  .dashboard-grid {
+    grid-template-columns: repeat(6, 1fr);
+  }
+}
+
+/* Desktop (1025px+) */
+@media (min-width: 1025px) {
+  body {
+    font-size: 16px;
+  }
+  
+  h1 { font-size: 2.25rem; }
+  h2 { font-size: 1.75rem; }
+  
+  .sidebar {
+    width: 300px;
+  }
+  
+  .content {
+    margin-left: 300px;
+    padding: 2.5rem;
+  }
+  
+  .stat-card {
+    padding: 1.5rem;
+  }
+  
+  .stat-value {
+    font-size: 2.25rem;
+  }
+  
+  /* Multi-column layouts */
+  .grid {
+    grid-template-columns: repeat(4, 1fr);
+    gap: 1.5rem;
+  }
+  
+  .dashboard-grid {
+    grid-template-columns: repeat(12, 1fr);
+  }
+  
+  /* Hover effects only on desktop */
+  .stat-card:hover {
+    box-shadow: 0 12px 32px rgba(0, 0, 0, 0.1);
+    transform: translateY(-4px);
+  }
+}
+
+/* Large Desktop (1440px+) */
+@media (min-width: 1440px) {
+  .container {
+    max-width: 1400px;
+    margin: 0 auto;
+  }
+  
+  .content {
+    padding: 3rem;
+  }
+}
+
+/* Landscape Orientation */
+@media (max-height: 500px) and (orientation: landscape) {
+  .sidebar {
+    max-height: 100vh;
+    overflow-y: auto;
+  }
+  
+  .content {
+    max-height: 100vh;
+    overflow-y: auto;
+  }
+}
+
+/* High DPI / Retina Displays */
+@media (-webkit-min-device-pixel-ratio: 2), (min-resolution: 192dpi) {
+  .stat-card {
+    border-width: 0.5px;
+  }
+}
+
+/* Reduce motion for accessibility */
+@media (prefers-reduced-motion: reduce) {
+  * {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+  
+  .stat-card {
+    transition: none;
+  }
+  
+  .pulse-ring {
+    animation: none;
+  }
+}
+
+/* Dark mode support */
+@media (prefers-color-scheme: dark) {
+  body {
+    background-color: #0f172a;
+    color: #f1f5f9;
+  }
+  
+  .stat-card {
+    background-color: #1e293b;
+    border-color: #334155;
+  }
+  
+  .stat-label {
+    color: #94a3b8;
+  }
+}
+
+/* Pulse animation for alerts */
+@keyframes pulse-ring {
+  0% { transform: scale(0.95); opacity: 0.7; }
+  50% { transform: scale(1); opacity: 0.3; }
+  100% { transform: scale(0.95); opacity: 0.7; }
+}
+
+.pulse-ring {
+  animation: pulse-ring 2s ease-out infinite;
+}
