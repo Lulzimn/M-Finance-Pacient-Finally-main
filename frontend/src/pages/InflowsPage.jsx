@@ -36,6 +36,7 @@ export default function InflowsPage({ user, setUser }) {
   const [dialogOpen, setDialogOpen] = useState(false);
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [selectedInflow, setSelectedInflow] = useState(null);
+  const [exportFormat, setExportFormat] = useState("excel");
   const [formData, setFormData] = useState({
     kategoria: "pagesa_pacient",
     pershkrimi: "",
@@ -155,14 +156,19 @@ export default function InflowsPage({ user, setUser }) {
               {totalEUR > 0 && <span className="ml-2 font-bold text-emerald-600">+ {totalEUR.toLocaleString()} EUR</span>}
             </p>
           </div>
-          <div className="flex gap-3">
-            <Button variant="outline" onClick={() => handleExport('pdf')} data-testid="export-inflows-pdf-btn">
+          <div className="flex flex-wrap gap-3 items-center">
+            <Select value={exportFormat} onValueChange={setExportFormat}>
+              <SelectTrigger className="w-32" aria-label="Zgjidh formatin e eksportit">
+                <SelectValue placeholder="Formati" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="excel">Excel</SelectItem>
+                <SelectItem value="pdf">PDF</SelectItem>
+              </SelectContent>
+            </Select>
+            <Button variant="outline" onClick={() => handleExport(exportFormat)} data-testid="export-inflows-btn">
               <Download className="w-4 h-4 mr-2" />
-              Eksporto PDF
-            </Button>
-            <Button variant="outline" onClick={() => handleExport('excel')} data-testid="export-inflows-btn">
-              <Download className="w-4 h-4 mr-2" />
-              Eksporto Excel
+              Shkarko
             </Button>
             <Button onClick={() => { setSelectedInflow(null); setFormData({ kategoria: "pagesa_pacient", pershkrimi: "", shuma: "", valuta: "MKD", metoda_pageses: "cash", patient_id: "", invoice_id: "" }); setDialogOpen(true); }} data-testid="add-inflow-btn">
               <Plus className="w-4 h-4 mr-2" />

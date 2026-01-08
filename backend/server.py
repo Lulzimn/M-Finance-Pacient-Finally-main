@@ -2,6 +2,7 @@ from fastapi import FastAPI, APIRouter, HTTPException, Response, Request, Depend
 from fastapi.responses import StreamingResponse, RedirectResponse
 from dotenv import load_dotenv
 from starlette.middleware.cors import CORSMiddleware
+from starlette.middleware.sessions import SessionMiddleware
 from motor.motor_asyncio import AsyncIOMotorClient
 import os
 import logging
@@ -30,6 +31,12 @@ db = client[os.environ['DB_NAME']]
 
 # Create the main app
 app = FastAPI(title="M-Dental Financial Management")
+
+# Add session middleware (required for OAuth)
+app.add_middleware(
+    SessionMiddleware,
+    secret_key=os.environ.get('SESSION_SECRET', 'dev-secret-key-change-in-production')
+)
 
 # OAuth Configuration
 oauth = OAuth()
@@ -1194,6 +1201,61 @@ async def export_excel(request: Request, type: str = "inflows", start_date: Opti
             worksheet.write(row, 4, item.get("valuta", ""))
             worksheet.write(row, 5, item.get("data", ""))
     
+    elif type == "cashflow":
+        inflows = await db.inflows.find({}, {"_id": 0}).to_list(10000)
+        outflows = await db.outflows.find({}, {"_id": 0}).to_list(10000)
+
+        ws_inflows = workbook.add_worksheet("Hyrje")
+        inflow_headers = ["ID", "Kategoria", "Përshkrimi", "Shuma", "Valuta", "Metoda", "Data"]
+        for col, header in enumerate(inflow_headers):
+            ws_inflows.write(0, col, header, header_format)
+        total_in_mkd = 0
+        total_in_eur = 0
+        for row, item in enumerate(inflows, 1):
+            ws_inflows.write(row, 0, item.get("inflow_id", ""))
+            ws_inflows.write(row, 1, item.get("kategoria", ""))
+            ws_inflows.write(row, 2, item.get("pershkrimi", ""))
+            ws_inflows.write(row, 3, item.get("shuma", 0))
+            ws_inflows.write(row, 4, item.get("valuta", ""))
+            ws_inflows.write(row, 5, item.get("metoda_pageses", ""))
+            ws_inflows.write(row, 6, item.get("data", ""))
+            if item.get("valuta") == "MKD":
+                total_in_mkd += item.get("shuma", 0)
+            elif item.get("valuta") == "EUR":
+                total_in_eur += item.get("shuma", 0)
+
+        ws_outflows = workbook.add_worksheet("Dalje")
+        outflow_headers = ["ID", "Kategoria", "Përshkrimi", "Shuma", "Valuta", "Data"]
+        for col, header in enumerate(outflow_headers):
+            ws_outflows.write(0, col, header, header_format)
+        total_out_mkd = 0
+        total_out_eur = 0
+        for row, item in enumerate(outflows, 1):
+            ws_outflows.write(row, 0, item.get("outflow_id", ""))
+            ws_outflows.write(row, 1, item.get("kategoria", ""))
+            ws_outflows.write(row, 2, item.get("pershkrimi", ""))
+            ws_outflows.write(row, 3, item.get("shuma", 0))
+            ws_outflows.write(row, 4, item.get("valuta", ""))
+            ws_outflows.write(row, 5, item.get("data", ""))
+            if item.get("valuta") == "MKD":
+                total_out_mkd += item.get("shuma", 0)
+            elif item.get("valuta") == "EUR":
+                total_out_eur += item.get("shuma", 0)
+
+        ws_balance = workbook.add_worksheet("Bilanc")
+        ws_balance.write(0, 0, "Totali Hyrje MKD", header_format)
+        ws_balance.write(0, 1, total_in_mkd)
+        ws_balance.write(1, 0, "Totali Dalje MKD", header_format)
+        ws_balance.write(1, 1, total_out_mkd)
+        ws_balance.write(2, 0, "Bilanci MKD", header_format)
+        ws_balance.write(2, 1, total_in_mkd - total_out_mkd)
+        ws_balance.write(4, 0, "Totali Hyrje EUR", header_format)
+        ws_balance.write(4, 1, total_in_eur)
+        ws_balance.write(5, 0, "Totali Dalje EUR", header_format)
+        ws_balance.write(5, 1, total_out_eur)
+        ws_balance.write(6, 0, "Bilanci EUR", header_format)
+        ws_balance.write(6, 1, total_in_eur - total_out_eur)
+
     elif type == "patients":
         data = await db.patients.find({}, {"_id": 0}).to_list(10000)
         headers = ["ID", "Emri", "Mbiemri", "Telefon", "Email", "Adresa"]
@@ -1226,10 +1288,11 @@ async def export_excel(request: Request, type: str = "inflows", start_date: Opti
     workbook.close()
     output.seek(0)
     
+    filename = f"{type}_export.xlsx"
     return StreamingResponse(
         output,
         media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-        headers={"Content-Disposition": f"attachment; filename={type}_export.xlsx"}
+        headers={"Content-Disposition": f"attachment; filename={filename}"}
     )
 
 
@@ -1251,6 +1314,7 @@ async def export_pdf(request: Request, type: str = "inflows", start_date: Option
     
     # Title style
     title_style = ParagraphStyle('Title', parent=styles['Heading1'], fontSize=18, textColor=colors.HexColor('#0284c7'), spaceAfter=20)
+    section_style = ParagraphStyle('Section', parent=styles['Heading2'], fontSize=14, textColor=colors.HexColor('#0f172a'), spaceAfter=12)
     
     # Logo and header
     logo_url = "https://i.ibb.co/G3Bkww3q/63-C124-A8-2-AE7-4-F0-A-BB53-C2-E63-E1954-E0.png"
@@ -1309,6 +1373,102 @@ async def export_pdf(request: Request, type: str = "inflows", start_date: Option
         if total_eur > 0:
             table_data.append(["", "", "TOTAL EUR:", f"{total_eur:,.2f}", "EUR"])
     
+    elif type == "cashflow":
+        elements.append(Paragraph("M-Dental - Hyrje dhe Dalje", title_style))
+
+        inflows = await db.inflows.find({}, {"_id": 0}).to_list(10000)
+        outflows = await db.outflows.find({}, {"_id": 0}).to_list(10000)
+
+        total_in_mkd = 0
+        total_in_eur = 0
+        total_out_mkd = 0
+        total_out_eur = 0
+
+        # Hyrjet
+        elements.append(Paragraph("Hyrjet", section_style))
+        inflow_headers = ["Data", "Kategoria", "Përshkrimi", "Shuma", "Valuta", "Metoda"]
+        inflow_table_data = [inflow_headers]
+        for item in inflows:
+            inflow_table_data.append([
+                item.get("data", "")[:10] if item.get("data") else "",
+                item.get("kategoria", ""),
+                item.get("pershkrimi", "")[:40],
+                f"{item.get('shuma', 0):,.2f}",
+                item.get("valuta", ""),
+                item.get("metoda_pageses", "")
+            ])
+            if item.get("valuta") == "MKD":
+                total_in_mkd += item.get("shuma", 0)
+            elif item.get("valuta") == "EUR":
+                total_in_eur += item.get("shuma", 0)
+        inflow_table_data.append(["", "", "TOTAL MKD:", f"{total_in_mkd:,.2f}", "MKD", ""])
+        if total_in_eur > 0:
+            inflow_table_data.append(["", "", "TOTAL EUR:", f"{total_in_eur:,.2f}", "EUR", ""])
+        inflow_table = Table(inflow_table_data, repeatRows=1)
+        inflow_table.setStyle(TableStyle([
+            ('BACKGROUND', (0, 0), (-1, 0), colors.HexColor('#0284c7')),
+            ('TEXTCOLOR', (0, 0), (-1, 0), colors.white),
+            ('ALIGN', (0, 0), (-1, -1), 'LEFT'),
+            ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
+            ('FONTSIZE', (0, 0), (-1, 0), 10),
+            ('BOTTOMPADDING', (0, 0), (-1, 0), 12),
+            ('BACKGROUND', (0, 1), (-1, -1), colors.white),
+            ('TEXTCOLOR', (0, 1), (-1, -1), colors.black),
+            ('FONTNAME', (0, 1), (-1, -1), 'Helvetica'),
+            ('FONTSIZE', (0, 1), (-1, -1), 9),
+            ('GRID', (0, 0), (-1, -1), 0.5, colors.grey),
+            ('ROWBACKGROUNDS', (0, 1), (-1, -1), [colors.white, colors.HexColor('#f8fafc')]),
+            ('ALIGN', (3, 1), (3, -1), 'RIGHT'),
+        ]))
+        elements.append(inflow_table)
+        elements.append(Spacer(1, 16))
+
+        # Daljet
+        elements.append(Paragraph("Daljet", section_style))
+        outflow_headers = ["Data", "Kategoria", "Përshkrimi", "Shuma", "Valuta"]
+        outflow_table_data = [outflow_headers]
+        for item in outflows:
+            outflow_table_data.append([
+                item.get("data", "")[:10] if item.get("data") else "",
+                item.get("kategoria", ""),
+                item.get("pershkrimi", "")[:40],
+                f"{item.get('shuma', 0):,.2f}",
+                item.get("valuta", "")
+            ])
+            if item.get("valuta") == "MKD":
+                total_out_mkd += item.get("shuma", 0)
+            elif item.get("valuta") == "EUR":
+                total_out_eur += item.get("shuma", 0)
+        outflow_table_data.append(["", "", "TOTAL MKD:", f"{total_out_mkd:,.2f}", "MKD"])
+        if total_out_eur > 0:
+            outflow_table_data.append(["", "", "TOTAL EUR:", f"{total_out_eur:,.2f}", "EUR"])
+        outflow_table = Table(outflow_table_data, repeatRows=1)
+        outflow_table.setStyle(TableStyle([
+            ('BACKGROUND', (0, 0), (-1, 0), colors.HexColor('#ef4444')),
+            ('TEXTCOLOR', (0, 0), (-1, 0), colors.white),
+            ('ALIGN', (0, 0), (-1, -1), 'LEFT'),
+            ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
+            ('FONTSIZE', (0, 0), (-1, 0), 10),
+            ('BOTTOMPADDING', (0, 0), (-1, 0), 12),
+            ('BACKGROUND', (0, 1), (-1, -1), colors.white),
+            ('TEXTCOLOR', (0, 1), (-1, -1), colors.black),
+            ('FONTNAME', (0, 1), (-1, -1), 'Helvetica'),
+            ('FONTSIZE', (0, 1), (-1, -1), 9),
+            ('GRID', (0, 0), (-1, -1), 0.5, colors.grey),
+            ('ROWBACKGROUNDS', (0, 1), (-1, -1), [colors.white, colors.HexColor('#f8fafc')]),
+            ('ALIGN', (3, 1), (3, -1), 'RIGHT'),
+        ]))
+        elements.append(outflow_table)
+
+        # Balance summary
+        elements.append(Spacer(1, 20))
+        balance_mkd = total_in_mkd - total_out_mkd
+        balance_eur = total_in_eur - total_out_eur
+        balance_style = ParagraphStyle('Balance', parent=styles['Heading3'], fontSize=12, textColor=colors.HexColor('#0f172a'), spaceBefore=6)
+        elements.append(Paragraph(f"Bilanci MKD: {balance_mkd:,.2f} MKD", balance_style))
+        if total_in_eur > 0 or total_out_eur > 0:
+            elements.append(Paragraph(f"Bilanci EUR: {balance_eur:,.2f} EUR", balance_style))
+
     elif type == "patients":
         elements.append(Paragraph("M-Dental - Lista e Pacientëve", title_style))
         data = await db.patients.find({}, {"_id": 0}).to_list(10000)
@@ -1344,25 +1504,25 @@ async def export_pdf(request: Request, type: str = "inflows", start_date: Option
     else:
         raise HTTPException(status_code=400, detail="Lloji i pavlefshëm i eksportit")
     
-    # Create table with styling
-    table = Table(table_data, repeatRows=1)
-    table.setStyle(TableStyle([
-        ('BACKGROUND', (0, 0), (-1, 0), colors.HexColor('#0284c7')),
-        ('TEXTCOLOR', (0, 0), (-1, 0), colors.white),
-        ('ALIGN', (0, 0), (-1, -1), 'LEFT'),
-        ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
-        ('FONTSIZE', (0, 0), (-1, 0), 10),
-        ('BOTTOMPADDING', (0, 0), (-1, 0), 12),
-        ('BACKGROUND', (0, 1), (-1, -1), colors.white),
-        ('TEXTCOLOR', (0, 1), (-1, -1), colors.black),
-        ('FONTNAME', (0, 1), (-1, -1), 'Helvetica'),
-        ('FONTSIZE', (0, 1), (-1, -1), 9),
-        ('GRID', (0, 0), (-1, -1), 0.5, colors.grey),
-        ('ROWBACKGROUNDS', (0, 1), (-1, -1), [colors.white, colors.HexColor('#f8fafc')]),
-        ('ALIGN', (3, 1), (3, -1), 'RIGHT'),  # Align amounts to right
-    ]))
-    
-    elements.append(table)
+    if type != "cashflow":
+        # Create table with styling for single-section exports
+        table = Table(table_data, repeatRows=1)
+        table.setStyle(TableStyle([
+            ('BACKGROUND', (0, 0), (-1, 0), colors.HexColor('#0284c7')),
+            ('TEXTCOLOR', (0, 0), (-1, 0), colors.white),
+            ('ALIGN', (0, 0), (-1, -1), 'LEFT'),
+            ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
+            ('FONTSIZE', (0, 0), (-1, 0), 10),
+            ('BOTTOMPADDING', (0, 0), (-1, 0), 12),
+            ('BACKGROUND', (0, 1), (-1, -1), colors.white),
+            ('TEXTCOLOR', (0, 1), (-1, -1), colors.black),
+            ('FONTNAME', (0, 1), (-1, -1), 'Helvetica'),
+            ('FONTSIZE', (0, 1), (-1, -1), 9),
+            ('GRID', (0, 0), (-1, -1), 0.5, colors.grey),
+            ('ROWBACKGROUNDS', (0, 1), (-1, -1), [colors.white, colors.HexColor('#f8fafc')]),
+            ('ALIGN', (3, 1), (3, -1), 'RIGHT'),  # Align amounts to right
+        ]))
+        elements.append(table)
     
     # Add date footer
     elements.append(Spacer(1, 20))
@@ -1372,10 +1532,11 @@ async def export_pdf(request: Request, type: str = "inflows", start_date: Option
     doc.build(elements)
     output.seek(0)
     
+    filename = f"{type}_export.pdf"
     return StreamingResponse(
         output,
         media_type="application/pdf",
-        headers={"Content-Disposition": f"attachment; filename={type}_export.pdf"}
+        headers={"Content-Disposition": f"attachment; filename={filename}"}
     )
 
 

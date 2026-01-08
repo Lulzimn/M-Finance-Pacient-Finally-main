@@ -264,7 +264,11 @@ export default function AppointmentsPage({ user, setUser, isStaff = false }) {
             <h1 className="text-3xl font-bold text-slate-900">Terminet</h1>
             <p className="text-slate-500 mt-1">{appointments.length} termine të regjistruara</p>
           </div>
-          <Button onClick={() => { resetForm(); setDialogOpen(true); }} data-testid="add-appointment-btn">
+          <Button
+            onClick={() => { resetForm(); setDialogOpen(true); }}
+            className="bg-sky-600 text-white shadow-md hover:bg-sky-700"
+            data-testid="add-appointment-btn"
+          >
             <Plus className="w-4 h-4 mr-2" />
             Cakto Termin
           </Button>

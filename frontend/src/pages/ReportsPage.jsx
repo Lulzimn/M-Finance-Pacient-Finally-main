@@ -1,11 +1,10 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { PageLayout } from "../components/layout/PageLayout";
 import { Card, CardContent, CardHeader, CardTitle } from "../components/ui/card";
 import { Button } from "../components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "../components/ui/select";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "../components/ui/dialog";
 import { Label } from "../components/ui/label";
-import { RadioGroup, RadioGroupItem } from "../components/ui/radio-group";
 import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell, Legend } from "recharts";
 import { Download, Calendar } from "lucide-react";
 import { toast } from "sonner";
@@ -37,11 +36,10 @@ export default function ReportsPage({ user, setUser }) {
   const [year, setYear] = useState(new Date().getFullYear().toString());
   const [month, setMonth] = useState((new Date().getMonth() + 1).toString());
   const [exportDialogOpen, setExportDialogOpen] = useState(false);
-  const [exportType, setExportType] = useState("inflows");
   const [exportFormat, setExportFormat] = useState("excel");
   const [exporting, setExporting] = useState(false);
 
-  const fetchReport = async () => {
+  const fetchReport = useCallback(async () => {
     setLoading(true);
     try {
       const response = await axios.get(`${API}/reports/monthly?year=${year}&month=${month}`);
@@ -50,24 +48,24 @@ export default function ReportsPage({ user, setUser }) {
       toast.error("Gabim në marrjen e raportit");
     }
     setLoading(false);
-  };
+  }, [year, month]);
 
   useEffect(() => {
     fetchReport();
-  }, [year, month]);
+  }, [fetchReport]);
 
-  const handleExport = async (type, format = 'excel') => {
+  const handleExport = async (format = 'excel') => {
     setExporting(true);
     try {
       const endpoint = format === 'pdf' ? 'pdf' : 'excel';
-      const response = await axios.get(`${API}/export/${endpoint}?type=${type}`, { 
+      const response = await axios.get(`${API}/export/${endpoint}?type=cashflow`, { 
         responseType: "blob",
         withCredentials: true 
       });
       const url = window.URL.createObjectURL(new Blob([response.data]));
       const link = document.createElement("a");
       link.href = url;
-      link.setAttribute("download", `${type}_export.${format === 'pdf' ? 'pdf' : 'xlsx'}`);
+      link.setAttribute("download", `hyrje_dalje_export.${format === 'pdf' ? 'pdf' : 'xlsx'}`);
       document.body.appendChild(link);
       link.click();
       link.remove();
@@ -104,7 +102,7 @@ export default function ReportsPage({ user, setUser }) {
           </div>
           <Button onClick={() => setExportDialogOpen(true)} data-testid="export-btn">
             <Download className="w-4 h-4 mr-2" />
-            Eksporto të Dhënat
+            Shkarko Hyrje & Dalje
           </Button>
         </div>
 
@@ -280,25 +278,6 @@ export default function ReportsPage({ user, setUser }) {
             <DialogTitle>Eksporto të Dhënat</DialogTitle>
           </DialogHeader>
           <div className="space-y-6 py-4">
-            {/* Zgjedh Llojin */}
-            <div className="space-y-3">
-              <Label className="text-base font-medium">Zgjedh Llojin</Label>
-              <RadioGroup value={exportType} onValueChange={setExportType}>
-                <div className="flex items-center space-x-2">
-                  <RadioGroupItem value="inflows" id="inflows" />
-                  <Label htmlFor="inflows" className="font-normal cursor-pointer">
-                    Hyrjet (Inflows)
-                  </Label>
-                </div>
-                <div className="flex items-center space-x-2">
-                  <RadioGroupItem value="outflows" id="outflows" />
-                  <Label htmlFor="outflows" className="font-normal cursor-pointer">
-                    Daljet (Outflows)
-                  </Label>
-                </div>
-              </RadioGroup>
-            </div>
-
             {/* Zgjedh Formatin */}
             <div className="space-y-3">
               <Label className="text-base font-medium">Zgjedh Formatin</Label>
@@ -322,7 +301,7 @@ export default function ReportsPage({ user, setUser }) {
             <Button variant="outline" onClick={() => setExportDialogOpen(false)} disabled={exporting}>
               Anulo
             </Button>
-            <Button onClick={() => handleExport(exportType, exportFormat)} disabled={exporting}>
+            <Button onClick={() => handleExport(exportFormat)} disabled={exporting}>
               {exporting ? (
                 <>
                   <div className="w-4 h-4 mr-2 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
