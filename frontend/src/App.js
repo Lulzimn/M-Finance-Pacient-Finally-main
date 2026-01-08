@@ -21,56 +21,6 @@ const API = `${BACKEND_URL}/api`;
 // Configure axios to ALWAYS send credentials
 axios.defaults.withCredentials = true;
 
-// Auth Callback Component - REMINDER: DO NOT HARDCODE THE URL, OR ADD ANY FALLBACKS OR REDIRECT URLS, THIS BREAKS THE AUTH
-const AuthCallback = () => {
-  const navigate = useNavigate();
-  const location = useLocation();
-  const hasProcessed = useRef(false);
-
-  useEffect(() => {
-    if (hasProcessed.current) return;
-    hasProcessed.current = true;
-
-    const processAuth = async () => {
-      const hash = location.hash;
-      const sessionIdMatch = hash.match(/session_id=([^&]+)/);
-      
-      if (sessionIdMatch) {
-        const sessionId = sessionIdMatch[1];
-        try {
-          const response = await axios.get(`${API}/auth/session?session_id=${sessionId}`, {
-            withCredentials: true
-          });
-          const user = response.data;
-          
-          // Redirect based on role
-          if (user.role === "admin") {
-            navigate("/admin", { state: { user } });
-          } else {
-            navigate("/staff", { state: { user } });
-          }
-        } catch (error) {
-          console.error("Auth error:", error);
-          navigate("/login");
-        }
-      } else {
-        navigate("/login");
-      }
-    };
-
-    processAuth();
-  }, [location, navigate]);
-
-  return (
-    <div className="min-h-screen flex items-center justify-center bg-slate-50">
-      <div className="text-center">
-        <div className="w-12 h-12 border-4 border-sky-600 border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
-        <p className="text-slate-600">Duke u autentikuar...</p>
-      </div>
-    </div>
-  );
-};
-
 // Protect Route Component
 const ProtectedRoute = ({ children, requiredRole }) => {
   const [isAuthenticated, setIsAuthenticated] = useState(null);
@@ -144,13 +94,6 @@ const ProtectedRoute = ({ children, requiredRole }) => {
 
 // App Router
 function AppRouter() {
-  const location = useLocation();
-
-  // Check URL fragment for session_id BEFORE rendering routes
-  if (location.hash?.includes("session_id=")) {
-    return <AuthCallback />;
-  }
-
   return (
     <Routes>
       <Route path="/login" element={<LoginPage />} />

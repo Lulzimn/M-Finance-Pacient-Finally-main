@@ -1,5 +1,5 @@
 from fastapi import FastAPI, APIRouter, HTTPException, Response, Request, Depends
-from fastapi.responses import StreamingResponse
+from fastapi.responses import StreamingResponse, RedirectResponse
 from dotenv import load_dotenv
 from starlette.middleware.cors import CORSMiddleware
 from motor.motor_asyncio import AsyncIOMotorClient
@@ -15,6 +15,7 @@ import httpx
 from io import BytesIO
 from sendgrid import SendGridAPIClient
 from sendgrid.helpers.mail import Mail, Email, To, Content
+from authlib.integrations.starlette_client import OAuth
 
 ROOT_DIR = Path(__file__).parent
 load_dotenv(ROOT_DIR / '.env')
@@ -29,6 +30,31 @@ db = client[os.environ['DB_NAME']]
 
 # Create the main app
 app = FastAPI(title="M-Dental Financial Management")
+
+# OAuth Configuration
+oauth = OAuth()
+
+# Google OAuth
+oauth.register(
+    name='google',
+    client_id=os.environ.get('GOOGLE_CLIENT_ID'),
+    client_secret=os.environ.get('GOOGLE_CLIENT_SECRET'),
+    server_metadata_url='https://accounts.google.com/.well-known/openid-configuration',
+    client_kwargs={'scope': 'openid email profile'}
+)
+
+# Microsoft OAuth
+oauth.register(
+    name='microsoft',
+    client_id=os.environ.get('MICROSOFT_CLIENT_ID'),
+    client_secret=os.environ.get('MICROSOFT_CLIENT_SECRET'),
+    authorize_url='https://login.microsoftonline.com/common/oauth2/v2.0/authorize',
+    authorize_params=None,
+    access_token_url='https://login.microsoftonline.com/common/oauth2/v2.0/token',
+    access_token_params=None,
+    refresh_token_url=None,
+    client_kwargs={'scope': 'openid email profile'}
+)
 
 # Lockdown mode to disable all non-auth endpoints during personalization
 LOCKDOWN_MODE = os.environ.get('LOCKDOWN_MODE', 'false').lower() == 'true'
@@ -52,6 +78,22 @@ SENDER_EMAIL = os.environ.get('SENDER_EMAIL', 'staffmdental@gmail.com')
 
 # Admin emails list - first registered user becomes admin, or add emails here
 ADMIN_EMAILS = ["lulzimn995@gmail.com", "lulzim.aga1995@gmail.com"]
+
+# Lightweight health probe (does not require DB to be fully ready)
+@app.get("/health")
+async def health() -> Dict[str, Any]:
+    status: Dict[str, Any] = {
+        "status": "ok",
+        "env": "production" if IS_PRODUCTION else "development",
+    }
+    try:
+        # Quick ping; if Mongo URL is misconfigured this will raise
+        await client.admin.command("ping")
+        status["db"] = "ok"
+    except Exception as e:
+        # Don’t crash health; surface useful info instead
+        status["db"] = f"error: {str(e)[:120]}"
+    return status
 
 # ==================== MODELS ====================
 
@@ -266,26 +308,135 @@ async def log_activity(user_id: str, user_name: str, action: str, entity_type: s
 
 # ==================== AUTH ENDPOINTS ====================
 
-@api_router.get("/auth/session")
-async def process_session(session_id: str, response: Response) -> Dict[str, Any]:
-    """Process Google OAuth session_id and create user session"""
-    # REMINDER: DO NOT HARDCODE THE URL, OR ADD ANY FALLBACKS OR REDIRECT URLS, THIS BREAKS THE AUTH
+@api_router.get("/auth/google/login")
+async def google_login(request: Request):
+    """Initiate Google OAuth login"""
+    redirect_uri = request.url_for('google_callback')
+    return await oauth.google.authorize_redirect(request, redirect_uri)
+
+@api_router.get("/auth/google/callback")
+async def google_callback(request: Request, response: Response):
+    """Handle Google OAuth callback"""
     try:
+        token = await oauth.google.authorize_access_token(request)
+        user_data = token.get('userinfo')
+        
+        if not user_data:
+            raise HTTPException(status_code=401, detail="Nuk u morën të dhënat e përdoruesit")
+        
+        # Get or create user
+        user_id = await process_oauth_user(
+            email=user_data.get('email'),
+            name=user_data.get('name'),
+            picture=user_data.get('picture')
+        )
+        
+        # Create session
+        session_token = f"session_{uuid.uuid4().hex}"
+        expires_at = datetime.now(timezone.utc) + timedelta(days=7)
+        
+        await db.user_sessions.delete_many({"user_id": user_id})
+        await db.user_sessions.insert_one({
+            "user_id": user_id,
+            "session_token": session_token,
+            "expires_at": expires_at.isoformat(),
+            "created_at": datetime.now(timezone.utc).isoformat()
+        })
+        
+        # Set cookie
+        samesite_value = "none" if IS_PRODUCTION else "lax"
+        response.set_cookie(
+            key="session_token",
+            value=session_token,
+            httponly=True,
+            secure=IS_PRODUCTION,
+            samesite=samesite_value,
+            path="/",
+            max_age=7*24*60*60
+        )
+        
+        # Get user role and redirect
+        user = await db.users.find_one({"user_id": user_id}, {"_id": 0})
+        redirect_path = "/admin" if user.get("role") == "admin" else "/staff"
+        
+        # Redirect to frontend
+        frontend_url = os.environ.get('FRONTEND_URL', 'http://localhost:3000')
+        return RedirectResponse(url=f"{frontend_url}{redirect_path}")
+        
+    except Exception as e:
+        logger.error(f"Google auth error: {e}")
+        raise HTTPException(status_code=401, detail=f"Gabim në autentikim: {str(e)}")
+
+@api_router.get("/auth/microsoft/login")
+async def microsoft_login(request: Request):
+    """Initiate Microsoft OAuth login"""
+    redirect_uri = request.url_for('microsoft_callback')
+    return await oauth.microsoft.authorize_redirect(request, redirect_uri)
+
+@api_router.get("/auth/microsoft/callback")
+async def microsoft_callback(request: Request, response: Response):
+    """Handle Microsoft OAuth callback"""
+    try:
+        token = await oauth.microsoft.authorize_access_token(request)
+        
+        # Get user info from Microsoft Graph API
         async with httpx.AsyncClient() as client_http:
             resp = await client_http.get(
-                "https://demobackend.emergentagent.com/auth/v1/env/oauth/session-data",
-                headers={"X-Session-ID": session_id}
+                'https://graph.microsoft.com/v1.0/me',
+                headers={'Authorization': f'Bearer {token["access_token"]}'}
             )
             if resp.status_code != 200:
-                raise HTTPException(status_code=401, detail="Sesioni i pavlefshëm")
+                raise HTTPException(status_code=401, detail="Nuk u morën të dhënat e përdoruesit")
             
             user_data = resp.json()
+        
+        # Get or create user
+        user_id = await process_oauth_user(
+            email=user_data.get('mail') or user_data.get('userPrincipalName'),
+            name=user_data.get('displayName'),
+            picture=None  # Microsoft doesn't provide picture in basic scope
+        )
+        
+        # Create session
+        session_token = f"session_{uuid.uuid4().hex}"
+        expires_at = datetime.now(timezone.utc) + timedelta(days=7)
+        
+        await db.user_sessions.delete_many({"user_id": user_id})
+        await db.user_sessions.insert_one({
+            "user_id": user_id,
+            "session_token": session_token,
+            "expires_at": expires_at.isoformat(),
+            "created_at": datetime.now(timezone.utc).isoformat()
+        })
+        
+        # Set cookie
+        samesite_value = "none" if IS_PRODUCTION else "lax"
+        response.set_cookie(
+            key="session_token",
+            value=session_token,
+            httponly=True,
+            secure=IS_PRODUCTION,
+            samesite=samesite_value,
+            path="/",
+            max_age=7*24*60*60
+        )
+        
+        # Get user role and redirect
+        user = await db.users.find_one({"user_id": user_id}, {"_id": 0})
+        redirect_path = "/admin" if user.get("role") == "admin" else "/staff"
+        
+        # Redirect to frontend
+        frontend_url = os.environ.get('FRONTEND_URL', 'http://localhost:3000')
+        return RedirectResponse(url=f"{frontend_url}{redirect_path}")
+        
     except Exception as e:
-        logger.error(f"Auth error: {e}")
-        raise HTTPException(status_code=401, detail="Gabim në autentikim")
-    
+        logger.error(f"Microsoft auth error: {e}")
+        raise HTTPException(status_code=401, detail=f"Gabim në autentikim: {str(e)}")
+
+async def process_oauth_user(email: str, name: str, picture: Optional[str] = None) -> str:
+    """Process OAuth user - create or update user and return user_id"""
     # Check if user exists
-    existing_user = await db.users.find_one({"email": user_data["email"]}, {"_id": 0})
+    existing_user = await db.users.find_one({"email": email}, {"_id": 0})
     
     if existing_user:
         user_id = existing_user["user_id"]
@@ -293,14 +444,15 @@ async def process_session(session_id: str, response: Response) -> Dict[str, Any]
         await db.users.update_one(
             {"user_id": user_id},
             {"$set": {
-                "name": user_data["name"],
-                "picture": user_data.get("picture")
+                "name": name,
+                "picture": picture
             }}
         )
+        return user_id
     else:
         # Check if this is the first user (make them admin) or if email is in admin list
         users_count = await db.users.count_documents({})
-        is_admin_email = user_data["email"] in ADMIN_EMAILS
+        is_admin_email = email in ADMIN_EMAILS
         is_first_user = users_count == 0
         
         # First user becomes admin automatically
@@ -308,71 +460,48 @@ async def process_session(session_id: str, response: Response) -> Dict[str, Any]
             user_id = f"user_{uuid.uuid4().hex[:12]}"
             new_user = {
                 "user_id": user_id,
-                "email": user_data["email"],
-                "name": user_data["name"],
-                "picture": user_data.get("picture"),
+                "email": email,
+                "name": name,
+                "picture": picture,
                 "role": "admin",
                 "created_at": datetime.now(timezone.utc).isoformat()
             }
             await db.users.insert_one(new_user)
-            await log_activity(user_id, user_data["name"], "REGJISTRUAR", "user", user_id, "Përdorues i parë u regjistrua si admin")
+            await log_activity(user_id, name, "REGJISTRUAR", "user", user_id, "Përdorues i parë u regjistrua si admin")
+            return user_id
         elif is_admin_email:
             # Email is in admin list - make them admin
             user_id = f"user_{uuid.uuid4().hex[:12]}"
             new_user = {
                 "user_id": user_id,
-                "email": user_data["email"],
-                "name": user_data["name"],
-                "picture": user_data.get("picture"),
+                "email": email,
+                "name": name,
+                "picture": picture,
                 "role": "admin",
                 "created_at": datetime.now(timezone.utc).isoformat()
             }
             await db.users.insert_one(new_user)
-            await log_activity(user_id, user_data["name"], "REGJISTRUAR", "user", user_id, "Përdorues u regjistrua si admin (email i aprovuar)")
+            await log_activity(user_id, name, "REGJISTRUAR", "user", user_id, "Përdorues u regjistrua si admin (email i aprovuar)")
+            return user_id
         else:
             # All other users go to pending - need admin approval
             user_id = f"user_{uuid.uuid4().hex[:12]}"
             new_user = {
                 "user_id": user_id,
-                "email": user_data["email"],
-                "name": user_data["name"],
-                "picture": user_data.get("picture"),
+                "email": email,
+                "name": name,
+                "picture": picture,
                 "role": "pending",
                 "created_at": datetime.now(timezone.utc).isoformat()
             }
             await db.users.insert_one(new_user)
-            await log_activity(user_id, user_data["name"], "REGJISTRUAR_PRITJE", "user", user_id, "Përdorues në pritje për aprovim")
+            await log_activity(user_id, name, "REGJISTRUAR_PRITJE", "user", user_id, "Përdorues në pritje për aprovim")
             raise HTTPException(status_code=403, detail="Llogaria juaj është në pritje për aprovim nga administratori")
-    
-    # Create session
-    session_token = user_data.get("session_token", f"session_{uuid.uuid4().hex}")
-    expires_at = datetime.now(timezone.utc) + timedelta(days=7)
-    
-    await db.user_sessions.delete_many({"user_id": user_id})
-    await db.user_sessions.insert_one({
-        "user_id": user_id,
-        "session_token": session_token,
-        "expires_at": expires_at.isoformat(),
-        "created_at": datetime.now(timezone.utc).isoformat()
-    })
-    
-    # Set cookie
-    response.set_cookie(
-        key="session_token",
-        value=session_token,
-        httponly=True,
-        secure=IS_PRODUCTION,  # Only secure in production
-        samesite="lax",
-        path="/",
-        max_age=7*24*60*60
-    )
-    
-    # Get user with role
-    user = await db.users.find_one({"user_id": user_id}, {"_id": 0})
-    if not user:
-        raise HTTPException(status_code=500, detail="Gabim në krijimin e përdoruesit")
-    
-    return user
+
+@api_router.get("/auth/session")
+async def process_session(session_id: str, response: Response) -> Dict[str, Any]:
+    """Legacy endpoint - kept for backwards compatibility but not used"""
+    raise HTTPException(status_code=410, detail="Kjo metodë e autentikimit nuk përdoret më. Ju lutemi përdorni Google ose Microsoft OAuth.")
 
 @api_router.get("/auth/me")
 async def get_me(request: Request) -> Dict[str, Any]:
@@ -454,12 +583,13 @@ async def dev_login(email: str, name: str, response: Response) -> Dict[str, Any]
     })
     
     # Set cookie
+    samesite_value = "none" if IS_PRODUCTION else "lax"
     response.set_cookie(
         key="session_token",
         value=session_token,
         httponly=True,
         secure=IS_PRODUCTION,  # Only secure in production
-        samesite="lax",
+        samesite=samesite_value,
         path="/",
         max_age=7*24*60*60
     )
@@ -1136,7 +1266,7 @@ async def export_pdf(request: Request, type: str = "inflows", start_date: Option
     title_style = ParagraphStyle('Title', parent=styles['Heading1'], fontSize=18, textColor=colors.HexColor('#0284c7'), spaceAfter=20)
     
     # Logo and header
-    logo_url = "https://customer-assets.emergentagent.com/job_mdental-billing/artifacts/g349ocju_63C124A8-2AE7-4F0A-BB53-C2E63E1954E0.png"
+    logo_url = "https://i.ibb.co/G3Bkww3q/63-C124-A8-2-AE7-4-F0-A-BB53-C2-E63-E1954-E0.png"
     
     if type == "inflows":
         elements.append(Paragraph("M-Dental - Raporti i Hyrjeve", title_style))

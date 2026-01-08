@@ -19,7 +19,7 @@ const BACKEND_URL = process.env.REACT_APP_BACKEND_URL;
 const API = `${BACKEND_URL}/api`;
 
 // Logo URL
-const LOGO_URL = "https://customer-assets.emergentagent.com/job_mdental-billing/artifacts/g349ocju_63C124A8-2AE7-4F0A-BB53-C2E63E1954E0.png";
+const LOGO_URL = "https://i.ibb.co/G3Bkww3q/63-C124-A8-2-AE7-4-F0-A-BB53-C2-E63-E1954-E0.png";
 
 export const Sidebar = ({ user, isAdmin = true }) => {
   const location = useLocation();
