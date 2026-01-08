@@ -14,26 +14,23 @@ export default function LoginPage() {
   const [devName, setDevName] = useState("Test Admin");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
+  const [existingUser, setExistingUser] = useState(null);
 
   useEffect(() => {
-    // Check if already authenticated
+    // Check if already authenticated; keep the user on login screen but offer a continue button
     const checkAuth = async () => {
       try {
         const response = await axios.get(`${API}/auth/me`, {
           withCredentials: true
         });
-        const user = response.data;
-        if (user.role === "admin") {
-          navigate("/admin");
-        } else {
-          navigate("/staff");
-        }
+        setExistingUser(response.data);
+        // Do NOT auto-redirect; user can choose to continue or sign in as someone else
       } catch (error) {
-        // Not authenticated, stay on login page
+        setExistingUser(null);
       }
     };
     checkAuth();
-  }, [navigate]);
+  }, []);
 
   const handleGoogleLogin = () => {
     // REMINDER: DO NOT HARDCODE THE URL, OR ADD ANY FALLBACKS OR REDIRECT URLS, THIS BREAKS THE AUTH
@@ -123,6 +120,21 @@ export default function LoginPage() {
             {error && (
               <div className="mb-6 p-4 bg-red-50 border border-red-200 rounded-lg">
                 <p className="text-sm text-red-700">{error}</p>
+              </div>
+            )}
+
+            {existingUser && (
+              <div className="mb-6 p-4 bg-emerald-50 border border-emerald-200 rounded-lg flex items-center justify-between gap-4">
+                <div>
+                  <p className="text-sm text-emerald-800 font-semibold">Tashmë i kyçur</p>
+                  <p className="text-xs text-emerald-700">{existingUser.email} ({existingUser.role})</p>
+                </div>
+                <Button
+                  onClick={() => navigate(existingUser.role === "admin" ? "/admin" : "/staff")}
+                  className="bg-emerald-600 hover:bg-emerald-700 text-white"
+                >
+                  Vazhdo
+                </Button>
               </div>
             )}
 
