@@ -1,5 +1,5 @@
-import { useEffect, useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useState } from "react";
+import { useNavigate, Link } from "react-router-dom";
 import { Button } from "../components/ui/button";
 import { Input } from "../components/ui/input";
 import { Label } from "../components/ui/label";
@@ -7,7 +7,7 @@ import axios from "axios";
 
 const BACKEND_URL = process.env.REACT_APP_BACKEND_URL;
 const API = `${BACKEND_URL}/api`;
-const LOGO_URL = "https://i.ibb.co/G3Bkww3q/63-C124-A8-2-AE7-4-F0-A-BB53-C2-E63-E1954-E0.png";
+
 
 export default function LoginPage() {
   const navigate = useNavigate();
@@ -47,44 +47,12 @@ export default function LoginPage() {
 
   return (
     <div className="min-h-screen flex">
-      {/* Left side - Image */}
-      <div 
-        className="hidden lg:flex lg:w-1/2 relative"
-        style={{
-          backgroundImage: "url('https://images.unsplash.com/photo-1642844819197-5f5f21b89ff8?crop=entropy&cs=srgb&fm=jpg&q=85')",
-          backgroundSize: "cover",
-          backgroundPosition: "center"
-        }}
-      >
-        <div className="absolute inset-0 bg-gradient-to-br from-sky-900/80 to-slate-900/90"></div>
-        <div className="relative z-10 flex flex-col justify-center px-12 text-white">
-          <div className="mb-8">
-            <img src={LOGO_URL} alt="M-Dental Logo" className="h-24 w-auto mb-6" />
-          </div>
-          <div className="space-y-4 text-sky-100/80">
-            <div className="flex items-center gap-3">
-              <div className="w-2 h-2 rounded-full bg-emerald-400"></div>
-              <span>Menaxhim i saktë i financave</span>
-            </div>
-            <div className="flex items-center gap-3">
-              <div className="w-2 h-2 rounded-full bg-emerald-400"></div>
-              <span>Evidencë e hyrjeve dhe daljeve</span>
-            </div>
-            <div className="flex items-center gap-3">
-              <div className="w-2 h-2 rounded-full bg-emerald-400"></div>
-              <span>Raporte të detajuara</span>
-            </div>
-          </div>
-        </div>
-      </div>
+      {/* ...hequr imazhet dhe backgroundet... */}
 
       {/* Right side - Login form */}
       <div className="flex-1 flex items-center justify-center p-8 bg-slate-50">
         <div className="w-full max-w-md">
-          {/* Mobile logo */}
-          <div className="lg:hidden text-center mb-8">
-            <img src={LOGO_URL} alt="M-Dental Logo" className="h-20 mx-auto mb-4" />
-          </div>
+          {/* ...hequr logo mobile... */}
 
           <div className="bg-white rounded-2xl shadow-xl p-8 animate-fadeIn">
             <div className="text-center mb-8">
@@ -153,6 +121,17 @@ export default function LoginPage() {
                   </button>
                 </div>
               </div>
+              
+              <div className="flex items-center justify-between">
+                <div></div>
+                <Link 
+                  to="/forgot-password" 
+                  className="text-sm text-sky-600 hover:text-sky-700 font-medium"
+                >
+                  Keni harruar fjalëkalimin?
+                </Link>
+              </div>
+              
               <Button
                 type="submit"
                 disabled={loading}

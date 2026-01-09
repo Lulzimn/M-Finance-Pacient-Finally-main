@@ -23,16 +23,26 @@ export default function SettingsPage({ user, setUser }) {
   const [editingRole, setEditingRole] = useState("");
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [userToDelete, setUserToDelete] = useState(null);
+  const [clinicInfo, setClinicInfo] = useState({
+    clinic_name: "M-Dental",
+    business_number: "",
+    address: "",
+    phone: "",
+    email: ""
+  });
+  const [savingClinic, setSavingClinic] = useState(false);
 
   const fetchData = async () => {
     try {
-      const [usersRes, rateRes] = await Promise.all([
+      const [usersRes, rateRes, clinicRes] = await Promise.all([
         axios.get(`${API}/users`),
-        axios.get(`${API}/exchange-rate`)
+        axios.get(`${API}/exchange-rate`),
+        axios.get(`${API}/settings/clinic`)
       ]);
       setUsers(usersRes.data);
       setExchangeRate(rateRes.data);
       setNewRate(rateRes.data.eur_to_mkd.toString());
+      setClinicInfo(clinicRes.data);
     } catch (error) {
       toast.error("Gabim në marrjen e të dhënave");
     }
@@ -77,6 +87,18 @@ export default function SettingsPage({ user, setUser }) {
   const cancelEditRole = () => {
     setEditingUserId(null);
     setEditingRole("");
+  };
+
+  const handleSaveClinic = async () => {
+    try {
+      setSavingClinic(true);
+      await axios.put(`${API}/settings/clinic`, clinicInfo);
+      toast.success("Të dhënat e biznesit u ruajtën");
+    } catch (error) {
+      toast.error(error.response?.data?.detail || "Gabim në ruajtjen e të dhënave");
+    } finally {
+      setSavingClinic(false);
+    }
   };
 
   const handleDeleteUser = async () => {
@@ -329,6 +351,78 @@ export default function SettingsPage({ user, setUser }) {
                 ))}
               </TableBody>
             </Table>
+          </CardContent>
+        </Card>
+
+        {/* Clinic / Business Info */}
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2 text-lg">
+              <Shield className="w-5 h-5 text-sky-600" />
+              Të Dhënat e Biznesit / Klinika
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div className="form-group">
+                <Label className="text-sm font-medium text-slate-700">Emri i Ordinancës *</Label>
+                <Input
+                  value={clinicInfo.clinic_name}
+                  onChange={(e) => setClinicInfo({ ...clinicInfo, clinic_name: e.target.value })}
+                  className="h-11 text-lg"
+                  placeholder="p.sh. M-Dental"
+                  required
+                />
+              </div>
+              <div className="form-group">
+                <Label className="text-sm font-medium text-slate-700">Numri i Biznesit</Label>
+                <Input
+                  value={clinicInfo.business_number}
+                  onChange={(e) => setClinicInfo({ ...clinicInfo, business_number: e.target.value })}
+                  className="h-11 text-lg"
+                  placeholder="Nr. fiskal / biznesit"
+                />
+              </div>
+            </div>
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div className="form-group">
+                <Label className="text-sm font-medium text-slate-700">Adresa</Label>
+                <Input
+                  value={clinicInfo.address}
+                  onChange={(e) => setClinicInfo({ ...clinicInfo, address: e.target.value })}
+                  className="h-11 text-lg"
+                  placeholder="Adresa e biznesit"
+                />
+              </div>
+              <div className="form-group">
+                <Label className="text-sm font-medium text-slate-700">Numri i Telefonit</Label>
+                <Input
+                  value={clinicInfo.phone}
+                  onChange={(e) => setClinicInfo({ ...clinicInfo, phone: e.target.value })}
+                  className="h-11 text-lg"
+                  placeholder="+389 XX XXX XXX"
+                />
+              </div>
+            </div>
+
+            <div className="form-group">
+              <Label className="text-sm font-medium text-slate-700">Email</Label>
+              <Input
+                type="email"
+                value={clinicInfo.email}
+                onChange={(e) => setClinicInfo({ ...clinicInfo, email: e.target.value })}
+                className="h-11 text-lg"
+                placeholder="info@klinika.com"
+              />
+            </div>
+
+            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+              <p className="text-sm text-slate-500">Këto të dhëna do të shfaqen në faturë dhe dokumente.</p>
+              <Button onClick={handleSaveClinic} disabled={savingClinic} className="w-full sm:w-auto">
+                {savingClinic ? "Duke ruajtur..." : "Ruaj Të Dhënat"}
+              </Button>
+            </div>
           </CardContent>
         </Card>
 

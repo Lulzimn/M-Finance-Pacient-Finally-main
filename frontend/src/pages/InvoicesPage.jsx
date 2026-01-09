@@ -93,6 +93,8 @@ export default function InvoicesPage({ user, setUser, isStaff = false }) {
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [selectedInvoice, setSelectedInvoice] = useState(null);
   const [previewInvoice, setPreviewInvoice] = useState(null);
+  const [previewClinic, setPreviewClinic] = useState(null);
+  const [previewPatient, setPreviewPatient] = useState(null);
   const [previewLang, setPreviewLang] = useState("sq");
   const [patientSearch, setPatientSearch] = useState("");
   const [showPatientList, setShowPatientList] = useState(false);
@@ -253,27 +255,30 @@ export default function InvoicesPage({ user, setUser, isStaff = false }) {
     }
   };
 
-  const handlePreview = (invoice) => {
-    setPreviewInvoice(invoice);
-    setPreviewOpen(true);
+  // Fetch invoice print data (with clinic info) for preview/print
+  const handlePreview = async (invoice) => {
+    try {
+      const res = await axios.get(`${API}/invoices/${invoice.invoice_id}/print`);
+      setPreviewInvoice(res.data.invoice);
+      setPreviewClinic(res.data.clinic);
+      setPreviewPatient(res.data.patient);
+      setPreviewOpen(true);
+    } catch (err) {
+      toast.error("Nuk u hap dot fatura për printim");
+    }
   };
 
   const handlePrint = () => {
-    if (!previewInvoice) return;
+    if (!previewInvoice || !previewClinic) return;
     const t = translations[previewLang];
     const displayCurrency = previewLang === 'de' || previewLang === 'en' ? 'EUR' : previewInvoice.valuta;
-    
-    // Convert amounts if needed
     const convertAmount = (amount) => {
       if (previewInvoice.valuta === displayCurrency) return amount;
-      if (previewInvoice.valuta === 'MKD' && displayCurrency === 'EUR') return amount / exchangeRate;
-      if (previewInvoice.valuta === 'EUR' && displayCurrency === 'MKD') return amount * exchangeRate;
+      if (previewInvoice.valuta === 'MKD' && displayCurrency === 'EUR') return amount / (previewInvoice.exchange_rate || exchangeRate);
+      if (previewInvoice.valuta === 'EUR' && displayCurrency === 'MKD') return amount * (previewInvoice.exchange_rate || exchangeRate);
       return amount;
     };
-
-    const patient = patients.find(p => p.patient_id === previewInvoice.patient_id);
-    const patientName = patient ? `${patient.emri} ${patient.mbiemri}` : previewInvoice.patient_name || '-';
-
+    const patientName = previewPatient ? `${previewPatient.emri} ${previewPatient.mbiemri}` : previewInvoice.patient_name || '-';
     const printWindow = window.open('', '_blank');
     printWindow.document.write(`
       <!DOCTYPE html>
@@ -288,6 +293,7 @@ export default function InvoicesPage({ user, setUser, isStaff = false }) {
             .company-info { margin-top: 12px; }
             .company-name { font-size: 24px; font-weight: bold; color: #0f172a; }
             .company-subtitle { font-size: 14px; color: #64748b; }
+            .company-meta { font-size: 13px; color: #64748b; margin-top: 2px; }
             .invoice-title { text-align: right; }
             .invoice-title h1 { font-size: 36px; color: #cbd5e1; font-weight: bold; }
             .invoice-number { font-size: 16px; font-weight: 600; margin-top: 8px; }
@@ -319,8 +325,11 @@ export default function InvoicesPage({ user, setUser, isStaff = false }) {
             <div>
               <img src="${LOGO_URL}" alt="M-Dental" class="logo" />
               <div class="company-info">
-                <div class="company-name">M-Dental</div>
+                <div class="company-name">${previewClinic.name}</div>
                 <div class="company-subtitle">${t.clinicSubtitle}</div>
+                <div class="company-meta">${t.taxNumber}: ${previewClinic.business_number || '-'}</div>
+                <div class="company-meta">${previewClinic.address}</div>
+                <div class="company-meta">${previewClinic.phone} | ${previewClinic.email}</div>
               </div>
             </div>
             <div class="invoice-title">
@@ -390,7 +399,7 @@ export default function InvoicesPage({ user, setUser, isStaff = false }) {
 
           <div class="footer">
             <div>${t.thankYou}</div>
-            <div style="margin-top:8px">M-Dental</div>
+            <div style="margin-top:8px">${previewClinic.name}</div>
           </div>
 
           <script>setTimeout(() => window.print(), 300);</script>
@@ -676,14 +685,17 @@ export default function InvoicesPage({ user, setUser, isStaff = false }) {
                 </div>
               </div>
             </DialogHeader>
-            {previewInvoice && (
+            {previewInvoice && previewClinic && (
               <div className="bg-white border rounded-lg p-6">
                 {/* Preview content matches print */}
                 <div className="flex justify-between items-start mb-8 pb-6 border-b-2 border-sky-600">
                   <div>
-                    <img src={LOGO_URL} alt="M-Dental" className="h-14 mb-2" />
-                    <h2 className="text-xl font-bold">M-Dental</h2>
+                    <img src={LOGO_URL} alt={previewClinic.name} className="h-14 mb-2" />
+                    <h2 className="text-xl font-bold">{previewClinic.name}</h2>
                     <p className="text-sm text-slate-500">{translations[previewLang].clinicSubtitle}</p>
+                    <p className="text-xs text-slate-500">{translations[previewLang].taxNumber}: {previewClinic.business_number || '-'}</p>
+                    <p className="text-xs text-slate-500">{previewClinic.address}</p>
+                    <p className="text-xs text-slate-500">{previewClinic.phone} | {previewClinic.email}</p>
                   </div>
                   <div className="text-right">
                     <h1 className="text-3xl font-bold text-slate-300">{translations[previewLang].invoice}</h1>
@@ -693,7 +705,7 @@ export default function InvoicesPage({ user, setUser, isStaff = false }) {
                 </div>
                 <div className="mb-6 p-4 bg-slate-50 rounded-lg">
                   <p className="text-xs font-semibold text-slate-500 mb-1">{translations[previewLang].billedTo}</p>
-                  <p className="font-semibold text-lg">{previewInvoice.patient_name}</p>
+                  <p className="font-semibold text-lg">{previewPatient ? `${previewPatient.emri} ${previewPatient.mbiemri}` : previewInvoice.patient_name}</p>
                 </div>
                 <table className="w-full mb-6">
                   <thead>

@@ -1,0 +1,252 @@
+<!DOCTYPE html>
+<html lang="sq">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Admin Reset - M-Dental</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 20px;
+        }
+        
+        .container {
+            background: white;
+            border-radius: 20px;
+            padding: 40px;
+            max-width: 500px;
+            width: 100%;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+        }
+        
+        h1 {
+            color: #333;
+            margin-bottom: 10px;
+            font-size: 28px;
+        }
+        
+        .subtitle {
+            color: #666;
+            margin-bottom: 30px;
+            font-size: 14px;
+        }
+        
+        .button {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border: none;
+            padding: 15px 30px;
+            border-radius: 10px;
+            font-size: 16px;
+            font-weight: 600;
+            cursor: pointer;
+            width: 100%;
+            transition: transform 0.2s, box-shadow 0.2s;
+            margin-bottom: 15px;
+        }
+        
+        .button:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 10px 20px rgba(0,0,0,0.2);
+        }
+        
+        .button:active {
+            transform: translateY(0);
+        }
+        
+        .button:disabled {
+            background: #ccc;
+            cursor: not-allowed;
+            transform: none;
+        }
+        
+        .result {
+            margin-top: 20px;
+            padding: 20px;
+            border-radius: 10px;
+            font-size: 14px;
+            line-height: 1.6;
+        }
+        
+        .success {
+            background: #d4edda;
+            color: #155724;
+            border: 1px solid #c3e6cb;
+        }
+        
+        .error {
+            background: #f8d7da;
+            color: #721c24;
+            border: 1px solid #f5c6cb;
+        }
+        
+        .info {
+            background: #d1ecf1;
+            color: #0c5460;
+            border: 1px solid #bee5eb;
+            margin-bottom: 20px;
+        }
+        
+        .credentials {
+            background: #fff3cd;
+            border: 2px solid #ffc107;
+            padding: 15px;
+            border-radius: 8px;
+            margin-top: 15px;
+        }
+        
+        .credentials strong {
+            display: block;
+            margin-bottom: 5px;
+        }
+        
+        .code {
+            background: #f4f4f4;
+            padding: 3px 8px;
+            border-radius: 4px;
+            font-family: 'Courier New', monospace;
+            font-size: 14px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🔧 Admin Reset Tool</h1>
+        <p class="subtitle">Përdorni këtë mjet për të rivendosur kredencialet e admin-it</p>
+        
+        <div class="info">
+            <strong>ℹ️ Informacion:</strong><br>
+            Ky mjet do të krijojë ose përditësojë përdoruesin admin bazuar në të dhënat në .env file.
+        </div>
+        
+        <button class="button" onclick="resetAdmin()" id="resetBtn">
+            🔄 Reset Admin User
+        </button>
+        
+        <button class="button" onclick="seedUsers()" id="seedBtn">
+            🌱 Seed All Users
+        </button>
+        
+        <div id="result"></div>
+    </div>
+    
+    <script>
+        const BACKEND_URL = 'http://127.0.0.1:8000';
+        
+        async function resetAdmin() {
+            const btn = document.getElementById('resetBtn');
+            const result = document.getElementById('result');
+            
+            btn.disabled = true;
+            btn.textContent = '⏳ Duke procesuar...';
+            result.innerHTML = '';
+            
+            try {
+                const response = await fetch(`${BACKEND_URL}/api/auth/reset-admin`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    }
+                });
+                
+                const data = await response.json();
+                
+                if (response.ok) {
+                    result.innerHTML = `
+                        <div class="result success">
+                            <strong>✅ Sukses!</strong><br>
+                            ${data.message}<br><br>
+                            <div class="credentials">
+                                <strong>Kredencialet e admin-it:</strong>
+                                Email: <span class="code">${data.email}</span><br>
+                                Password: <span class="code">${data.password}</span>
+                            </div>
+                        </div>
+                    `;
+                } else {
+                    result.innerHTML = `
+                        <div class="result error">
+                            <strong>❌ Gabim:</strong><br>
+                            ${data.detail || 'Dicka shkoi gabim'}
+                        </div>
+                    `;
+                }
+            } catch (error) {
+                result.innerHTML = `
+                    <div class="result error">
+                        <strong>❌ Gabim në lidhje:</strong><br>
+                        ${error.message}<br><br>
+                        Sigurohuni që backend është duke punuar në ${BACKEND_URL}
+                    </div>
+                `;
+            } finally {
+                btn.disabled = false;
+                btn.textContent = '🔄 Reset Admin User';
+            }
+        }
+        
+        async function seedUsers() {
+            const btn = document.getElementById('seedBtn');
+            const result = document.getElementById('result');
+            
+            btn.disabled = true;
+            btn.textContent = '⏳ Duke krijuar përdoruesit...';
+            result.innerHTML = '';
+            
+            try {
+                const response = await fetch(`${BACKEND_URL}/api/auth/seed`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    }
+                });
+                
+                const data = await response.json();
+                
+                if (response.ok) {
+                    const seededList = data.seeded && data.seeded.length > 0
+                        ? data.seeded.map(u => `${u.email} (${u.role})`).join('<br>')
+                        : 'Të gjithë përdoruesit ekzistojnë tashmë';
+                    
+                    result.innerHTML = `
+                        <div class="result success">
+                            <strong>✅ Sukses!</strong><br>
+                            Përdoruesit u krijuan/verifikuan.<br><br>
+                            ${seededList}
+                        </div>
+                    `;
+                } else {
+                    result.innerHTML = `
+                        <div class="result error">
+                            <strong>❌ Gabim:</strong><br>
+                            ${data.detail || 'Dicka shkoi gabim'}
+                        </div>
+                    `;
+                }
+            } catch (error) {
+                result.innerHTML = `
+                    <div class="result error">
+                        <strong>❌ Gabim në lidhje:</strong><br>
+                        ${error.message}<br><br>
+                        Sigurohuni që backend është duke punuar në ${BACKEND_URL}
+                    </div>
+                `;
+            } finally {
+                btn.disabled = false;
+                btn.textContent = '🌱 Seed All Users';
+            }
+        }
+    </script>
+</body>
+</html>

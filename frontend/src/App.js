@@ -5,7 +5,10 @@ import axios from "axios";
 
 // Pages
 import LoginPage from "./pages/LoginPage";
+import ForgotPasswordPage from "./pages/ForgotPasswordPage";
+import ResetPasswordPage from "./pages/ResetPasswordPage";
 import AdminDashboard from "./pages/AdminDashboard";
+import HiddenAdminAccess from "./pages/HiddenAdminAccess";
 import StaffDashboard from "./pages/StaffDashboard";
 import PatientsPage from "./pages/PatientsPage";
 import InvoicesPage from "./pages/InvoicesPage";
@@ -95,6 +98,9 @@ function AppRouter() {
       <Route path="/login" element={<LoginPage />} />
       
       {/* Admin Routes */}
+      {/* Hidden Admin Access Route - nuk shfaqet në menu */}
+      <Route path="/hidden-admin-access" element={<HiddenAdminAccess />} />
+      <Route path="/hidden-admin-access/:link" element={<HiddenAdminAccess />} />
       <Route
         path="/admin"
         element={
@@ -196,6 +202,9 @@ function AppRouter() {
 
       {/* Default redirect */}
       <Route path="/" element={<Navigate to="/login" replace />} />
+      <Route path="/login" element={<LoginPage />} />
+      <Route path="/forgot-password" element={<ForgotPasswordPage />} />
+      <Route path="/reset-password" element={<ResetPasswordPage />} />
       <Route path="*" element={<Navigate to="/login" replace />} />
     </Routes>
   );

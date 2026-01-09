@@ -230,43 +230,65 @@ export default function OutflowsPage({ user, setUser }) {
 
         {/* Add/Edit Dialog */}
         <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
-          <DialogContent className="sm:max-w-md bg-slate-50">
+          <DialogContent className="sm:max-w-2xl max-h-[90vh] overflow-y-auto bg-slate-50">
             <DialogHeader>
-              <DialogTitle className="text-slate-900">{selectedOutflow ? "Ndrysho Daljen" : "Regjistro Dalje të Re"}</DialogTitle>
+              <DialogTitle className="text-xl font-bold text-slate-900">{selectedOutflow ? "Ndrysho Daljen" : "Regjistro Dalje të Re"}</DialogTitle>
             </DialogHeader>
-            <form onSubmit={handleSubmit} className="space-y-4">
+            <form onSubmit={handleSubmit} className="space-y-5">
+              {/* Amount - Large and prominent */}
+              <div className="bg-white p-6 rounded-xl border-2 border-red-200 shadow-sm">
+                <Label className="text-base font-semibold text-slate-700 mb-2 block">Shuma *</Label>
+                <div className="flex gap-3">
+                  <Input 
+                    type="number" 
+                    step="0.01" 
+                    value={formData.shuma} 
+                    onChange={(e) => setFormData({ ...formData, shuma: e.target.value })} 
+                    required 
+                    data-testid="outflow-shuma-input"
+                    className="text-3xl font-bold text-red-600 h-16 text-center"
+                    placeholder="0.00"
+                  />
+                  <Select value={formData.valuta} onValueChange={(value) => setFormData({ ...formData, valuta: value })}>
+                    <SelectTrigger data-testid="outflow-valuta-select" className="w-32 h-16 text-xl font-bold">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="MKD" className="text-lg">MKD</SelectItem>
+                      <SelectItem value="EUR" className="text-lg">EUR</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
+
               <div className="form-group">
-                <Label>Kategoria *</Label>
+                <Label className="text-sm font-medium">Kategoria *</Label>
                 <Select value={formData.kategoria} onValueChange={(value) => setFormData({ ...formData, kategoria: value })}>
-                  <SelectTrigger data-testid="outflow-kategoria-select"><SelectValue /></SelectTrigger>
+                  <SelectTrigger data-testid="outflow-kategoria-select" className="h-11">
+                    <SelectValue />
+                  </SelectTrigger>
                   <SelectContent>
                     {CATEGORIES.map(c => <SelectItem key={c.value} value={c.value}>{c.label}</SelectItem>)}
                   </SelectContent>
                 </Select>
               </div>
-              <div className="grid grid-cols-2 gap-4">
-                <div className="form-group">
-                  <Label>Shuma *</Label>
-                  <Input type="number" step="0.01" value={formData.shuma} onChange={(e) => setFormData({ ...formData, shuma: e.target.value })} required data-testid="outflow-shuma-input" />
-                </div>
-                <div className="form-group">
-                  <Label>Valuta</Label>
-                  <Select value={formData.valuta} onValueChange={(value) => setFormData({ ...formData, valuta: value })}>
-                    <SelectTrigger data-testid="outflow-valuta-select"><SelectValue /></SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="MKD">MKD</SelectItem>
-                      <SelectItem value="EUR">EUR</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-              </div>
+              
               <div className="form-group">
-                <Label>Përshkrimi *</Label>
-                <Textarea value={formData.pershkrimi} onChange={(e) => setFormData({ ...formData, pershkrimi: e.target.value })} required rows={3} data-testid="outflow-pershkrimi-input" />
+                <Label className="text-sm font-medium">Përshkrimi *</Label>
+                <Textarea 
+                  value={formData.pershkrimi} 
+                  onChange={(e) => setFormData({ ...formData, pershkrimi: e.target.value })} 
+                  required 
+                  rows={3} 
+                  data-testid="outflow-pershkrimi-input"
+                  className="resize-none"
+                  placeholder="Shto përshkrimin..."
+                />
               </div>
-              <DialogFooter>
-                <Button type="button" variant="outline" onClick={() => setDialogOpen(false)}>Anulo</Button>
-                <Button type="submit" data-testid="save-outflow-btn">{selectedOutflow ? "Ruaj Ndryshimet" : "Regjistro Daljen"}</Button>
+              
+              <DialogFooter className="gap-2 sm:gap-0">
+                <Button type="button" variant="outline" onClick={() => setDialogOpen(false)} className="w-full sm:w-auto">Anulo</Button>
+                <Button type="submit" data-testid="save-outflow-btn" className="w-full sm:w-auto">{selectedOutflow ? "Ruaj Ndryshimet" : "Regjistro Daljen"}</Button>
               </DialogFooter>
             </form>
           </DialogContent>

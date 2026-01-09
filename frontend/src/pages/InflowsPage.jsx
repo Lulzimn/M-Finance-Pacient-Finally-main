@@ -254,51 +254,67 @@ export default function InflowsPage({ user, setUser }) {
 
         {/* Add/Edit Dialog */}
         <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
-          <DialogContent className="sm:max-w-lg bg-slate-50">
+          <DialogContent className="sm:max-w-2xl max-h-[90vh] overflow-y-auto bg-slate-50">
             <DialogHeader>
-              <DialogTitle>{selectedInflow ? "Ndrysho Hyrjen" : "Regjistro Hyrje të Re"}</DialogTitle>
+              <DialogTitle className="text-xl font-bold text-slate-900">{selectedInflow ? "Ndrysho Hyrjen" : "Regjistro Hyrje të Re"}</DialogTitle>
             </DialogHeader>
-            <form onSubmit={handleSubmit} className="space-y-4">
-              <div className="grid grid-cols-2 gap-4">
+            <form onSubmit={handleSubmit} className="space-y-5">
+              {/* Amount - Large and prominent */}
+              <div className="bg-white p-6 rounded-xl border-2 border-emerald-200 shadow-sm">
+                <Label className="text-base font-semibold text-slate-700 mb-2 block">Shuma *</Label>
+                <div className="flex gap-3">
+                  <Input 
+                    type="number" 
+                    step="0.01" 
+                    value={formData.shuma} 
+                    onChange={(e) => setFormData({ ...formData, shuma: e.target.value })} 
+                    required 
+                    data-testid="inflow-shuma-input"
+                    className="text-3xl font-bold text-emerald-600 h-16 text-center"
+                    placeholder="0.00"
+                  />
+                  <Select value={formData.valuta} onValueChange={(value) => setFormData({ ...formData, valuta: value })}>
+                    <SelectTrigger data-testid="inflow-valuta-select" className="w-32 h-16 text-xl font-bold">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="MKD" className="text-lg">MKD</SelectItem>
+                      <SelectItem value="EUR" className="text-lg">EUR</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div className="form-group">
-                  <Label>Kategoria *</Label>
+                  <Label className="text-sm font-medium">Kategoria *</Label>
                   <Select value={formData.kategoria} onValueChange={(value) => setFormData({ ...formData, kategoria: value })}>
-                    <SelectTrigger data-testid="inflow-kategoria-select"><SelectValue /></SelectTrigger>
+                    <SelectTrigger data-testid="inflow-kategoria-select" className="h-11">
+                      <SelectValue />
+                    </SelectTrigger>
                     <SelectContent>
                       {CATEGORIES.map(c => <SelectItem key={c.value} value={c.value}>{c.label}</SelectItem>)}
                     </SelectContent>
                   </Select>
                 </div>
                 <div className="form-group">
-                  <Label>Metoda Pageses</Label>
+                  <Label className="text-sm font-medium">Metoda Pageses</Label>
                   <Select value={formData.metoda_pageses} onValueChange={(value) => setFormData({ ...formData, metoda_pageses: value })}>
-                    <SelectTrigger data-testid="inflow-metoda-select"><SelectValue /></SelectTrigger>
+                    <SelectTrigger data-testid="inflow-metoda-select" className="h-11">
+                      <SelectValue />
+                    </SelectTrigger>
                     <SelectContent>
                       {PAYMENT_METHODS.map(m => <SelectItem key={m.value} value={m.value}>{m.label}</SelectItem>)}
                     </SelectContent>
                   </Select>
                 </div>
               </div>
-              <div className="grid grid-cols-2 gap-4">
-                <div className="form-group">
-                  <Label>Shuma *</Label>
-                  <Input type="number" step="0.01" value={formData.shuma} onChange={(e) => setFormData({ ...formData, shuma: e.target.value })} required data-testid="inflow-shuma-input" />
-                </div>
-                <div className="form-group">
-                  <Label>Valuta</Label>
-                  <Select value={formData.valuta} onValueChange={(value) => setFormData({ ...formData, valuta: value })}>
-                    <SelectTrigger data-testid="inflow-valuta-select"><SelectValue /></SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="MKD">MKD</SelectItem>
-                      <SelectItem value="EUR">EUR</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-              </div>
               <div className="form-group">
-                <Label>Pacienti (Opsional)</Label>
+                <Label className="text-sm font-medium">Pacienti (Opsional)</Label>
                 <Select value={formData.patient_id} onValueChange={(value) => setFormData({ ...formData, patient_id: value })}>
-                  <SelectTrigger data-testid="inflow-patient-select"><SelectValue placeholder="Zgjidh pacientin" /></SelectTrigger>
+                  <SelectTrigger data-testid="inflow-patient-select" className="h-11">
+                    <SelectValue placeholder="Zgjidh pacientin" />
+                  </SelectTrigger>
                   <SelectContent>
                     <SelectItem value="">Asnjë</SelectItem>
                     {patients.map(p => <SelectItem key={p.patient_id} value={p.patient_id}>{p.emri} {p.mbiemri}</SelectItem>)}
@@ -306,9 +322,11 @@ export default function InflowsPage({ user, setUser }) {
                 </Select>
               </div>
               <div className="form-group">
-                <Label>Fatura (Opsional)</Label>
+                <Label className="text-sm font-medium">Fatura (Opsional)</Label>
                 <Select value={formData.invoice_id} onValueChange={(value) => setFormData({ ...formData, invoice_id: value })}>
-                  <SelectTrigger data-testid="inflow-invoice-select"><SelectValue placeholder="Lidh me faturë" /></SelectTrigger>
+                  <SelectTrigger data-testid="inflow-invoice-select" className="h-11">
+                    <SelectValue placeholder="Lidh me faturë" />
+                  </SelectTrigger>
                   <SelectContent>
                     <SelectItem value="">Asnjë</SelectItem>
                     {invoices.map(inv => <SelectItem key={inv.invoice_id} value={inv.invoice_id}>{inv.patient_name} - {inv.shuma} {inv.valuta}</SelectItem>)}
@@ -316,12 +334,20 @@ export default function InflowsPage({ user, setUser }) {
                 </Select>
               </div>
               <div className="form-group">
-                <Label>Përshkrimi *</Label>
-                <Textarea value={formData.pershkrimi} onChange={(e) => setFormData({ ...formData, pershkrimi: e.target.value })} required rows={3} data-testid="inflow-pershkrimi-input" />
+                <Label className="text-sm font-medium">Përshkrimi *</Label>
+                <Textarea 
+                  value={formData.pershkrimi} 
+                  onChange={(e) => setFormData({ ...formData, pershkrimi: e.target.value })} 
+                  required 
+                  rows={3} 
+                  data-testid="inflow-pershkrimi-input"
+                  className="resize-none"
+                  placeholder="Shto përshkrimin..."
+                />
               </div>
-              <DialogFooter>
-                <Button type="button" variant="outline" onClick={() => setDialogOpen(false)}>Anulo</Button>
-                <Button type="submit" data-testid="save-inflow-btn">{selectedInflow ? "Ruaj Ndryshimet" : "Regjistro Hyrjen"}</Button>
+              <DialogFooter className="gap-2 sm:gap-0">
+                <Button type="button" variant="outline" onClick={() => setDialogOpen(false)} className="w-full sm:w-auto">Anulo</Button>
+                <Button type="submit" data-testid="save-inflow-btn" className="w-full sm:w-auto">{selectedInflow ? "Ruaj Ndryshimet" : "Regjistro Hyrjen"}</Button>
               </DialogFooter>
             </form>
           </DialogContent>

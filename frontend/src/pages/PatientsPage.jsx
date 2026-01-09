@@ -281,78 +281,105 @@ export default function PatientsPage({ user, setUser, isStaff = false }) {
 
         {/* Add/Edit Dialog */}
         <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
-          <DialogContent className="sm:max-w-md bg-slate-50">
+          <DialogContent className="sm:max-w-2xl max-h-[90vh] overflow-y-auto bg-slate-50">
             <DialogHeader>
-              <DialogTitle className="text-slate-900">{selectedPatient ? "Ndrysho Pacientin" : "Shto Pacient të Ri"}</DialogTitle>
+              <DialogTitle className="text-xl font-bold text-slate-900">{selectedPatient ? "Ndrysho Pacientin" : "Shto Pacient të Ri"}</DialogTitle>
             </DialogHeader>
-            <form onSubmit={handleSubmit} className="space-y-4">
-              <div className="grid grid-cols-2 gap-4">
+            <form onSubmit={handleSubmit} className="space-y-5">
+              {/* Name fields - Always full width on mobile */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div className="form-group">
-                  <Label htmlFor="emri">Emri *</Label>
+                  <Label htmlFor="emri" className="text-sm font-medium text-slate-700">Emri *</Label>
                   <Input
                     id="emri"
                     value={formData.emri}
                     onChange={(e) => setFormData({ ...formData, emri: e.target.value })}
                     required
                     data-testid="patient-emri-input"
+                    className="h-14 text-lg"
+                    placeholder="Shkruani emrin"
                   />
                 </div>
                 <div className="form-group">
-                  <Label htmlFor="mbiemri">Mbiemri *</Label>
+                  <Label htmlFor="mbiemri" className="text-sm font-medium text-slate-700">Mbiemri *</Label>
                   <Input
                     id="mbiemri"
                     value={formData.mbiemri}
                     onChange={(e) => setFormData({ ...formData, mbiemri: e.target.value })}
                     required
                     data-testid="patient-mbiemri-input"
+                    className="h-14 text-lg"
+                    placeholder="Shkruani mbiemrin"
                   />
                 </div>
               </div>
-              <div className="grid grid-cols-2 gap-4">
+              
+              {/* Contact fields */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div className="form-group">
-                  <Label htmlFor="telefon">Telefon</Label>
+                  <Label htmlFor="telefon" className="text-sm font-medium text-slate-700 flex items-center gap-2">
+                    <Phone className="w-4 h-4" />
+                    Telefon
+                  </Label>
                   <Input
                     id="telefon"
+                    type="tel"
                     value={formData.telefon}
                     onChange={(e) => setFormData({ ...formData, telefon: e.target.value })}
                     data-testid="patient-telefon-input"
+                    className="h-14 text-lg"
+                    placeholder="+389 XX XXX XXX"
                   />
                 </div>
                 <div className="form-group">
-                  <Label htmlFor="email">Email</Label>
+                  <Label htmlFor="email" className="text-sm font-medium text-slate-700 flex items-center gap-2">
+                    <Mail className="w-4 h-4" />
+                    Email
+                  </Label>
                   <Input
                     id="email"
                     type="email"
                     value={formData.email}
                     onChange={(e) => setFormData({ ...formData, email: e.target.value })}
                     data-testid="patient-email-input"
+                    className="h-14 text-lg"
+                    placeholder="email@example.com"
                   />
                 </div>
               </div>
+              
+              {/* Address */}
               <div className="form-group">
-                <Label htmlFor="adresa">Adresa</Label>
+                <Label htmlFor="adresa" className="text-sm font-medium text-slate-700">Adresa</Label>
                 <Input
                   id="adresa"
                   value={formData.adresa}
                   onChange={(e) => setFormData({ ...formData, adresa: e.target.value })}
                   data-testid="patient-adresa-input"
+                  className="h-14 text-lg"
+                  placeholder="Shkruani adresën"
                 />
               </div>
+              
+              {/* Notes */}
               <div className="form-group">
-                <Label htmlFor="shenimet">Shënime</Label>
+                <Label htmlFor="shenimet" className="text-sm font-medium text-slate-700">Shënime</Label>
                 <Textarea
                   id="shenimet"
                   value={formData.shenimet}
                   onChange={(e) => setFormData({ ...formData, shenimet: e.target.value })}
-                  rows={3}
+                  rows={4}
                   data-testid="patient-shenimet-input"
+                  className="resize-none text-lg min-h-[64px]"
+                  placeholder="Shënime shtesë për pacientin..."
                 />
               </div>
-              <DialogFooter>
-                <Button type="button" variant="outline" onClick={() => setDialogOpen(false)}>
+              
+              <DialogFooter className="gap-2 sm:gap-0">
+                <Button type="button" variant="outline" onClick={() => setDialogOpen(false)} className="w-full sm:w-auto">
                   Anulo
                 </Button>
-                <Button type="submit" data-testid="save-patient-btn">
+                <Button type="submit" data-testid="save-patient-btn" className="w-full sm:w-auto">
                   {selectedPatient ? "Ruaj Ndryshimet" : "Shto Pacientin"}
                 </Button>
               </DialogFooter>

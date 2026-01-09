@@ -40,6 +40,10 @@ LOCKDOWN_ALLOWED_PATHS = {
     "/api/auth/me",
     "/api/auth/seed",
     "/api/auth/reseed",
+    "/api/auth/reset-admin",
+    "/api/auth/forgot-password",
+    "/api/auth/verify-reset-token",
+    "/api/auth/reset-password",
 }
 
 # Create router with /api prefix
@@ -49,12 +53,117 @@ api_router = APIRouter(prefix="/api")
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(name)s - %(levelname)s - %(message)s')
 logger = logging.getLogger(__name__)
 
+
 # SendGrid configuration
 SENDGRID_API_KEY = os.environ.get('SENDGRID_API_KEY')
-SENDER_EMAIL = os.environ.get('SENDER_EMAIL', 'staffmdental@gmail.com')
 
-# Admin emails list - first registered user becomes admin, or add emails here
-ADMIN_EMAILS = ["lulzimn995@gmail.com", "lulzim.aga1995@gmail.com"]
+# ==================== HIDDEN ADMIN ACCESS ====================
+import secrets
+
+HIDDEN_ADMIN_LINK_COLLECTION = "hidden_admin_link"
+
+async def get_or_create_hidden_admin_link():
+    doc = await db[HIDDEN_ADMIN_LINK_COLLECTION].find_one({})
+    if doc:
+        return doc["link"], False
+    # Generate new link
+    link = secrets.token_urlsafe(32)
+    await db[HIDDEN_ADMIN_LINK_COLLECTION].delete_many({})
+    await db[HIDDEN_ADMIN_LINK_COLLECTION].insert_one({
+        "link": link,
+        "created_at": datetime.now(timezone.utc).isoformat()
+    })
+    return link, True
+
+@api_router.post("/admin/hidden-access-link", status_code=201)
+async def create_hidden_admin_link(request: Request):
+    """Krijo ose merr linkun e fshehtë të adminit. Ky link nuk shfaqet kurrë automatikisht në UI ose kod, vetëm admini mund ta marrë manualisht nga backend."""
+    user = await get_current_user(request)
+    if not require_creator(user):
+        raise HTTPException(status_code=403, detail="Leje e pamjaftueshme")
+    link, created = await get_or_create_hidden_admin_link()
+    return {"link": link, "created": created}
+
+@api_router.post("/admin/hidden-access-verify")
+async def verify_hidden_admin_link(body: Dict[str, str]):
+    """Verifiko linkun e fshehtë për akses admin. Ky link është gjithmonë aktiv derisa të rigjenerohet nga admini."""
+    link = (body.get("link") or "").strip()
+    email = (body.get("email") or "").strip().lower()
+    if not link or not email:
+        raise HTTPException(status_code=400, detail="Link dhe email janë të detyrueshëm")
+    doc = await db[HIDDEN_ADMIN_LINK_COLLECTION].find_one({"link": link})
+    if not doc:
+        raise HTTPException(status_code=404, detail="Link i pavlefshëm")
+    # Opsionale: kontrollo nëse emaili është admin ose allowed
+    allowed = await db.allowed_emails.find_one({"email": email})
+    if not allowed or allowed.get("role") != "admin":
+        raise HTTPException(status_code=403, detail="Email nuk ka të drejtë admini")
+    # Mund të kthehet një token ose sukses
+    return {"success": True, "email": email}
+
+# Allowed emails and roles are now managed in the database (collection: allowed_emails)
+
+class AllowedEmail(BaseModel):
+    email: str
+    role: str = "staff"  # admin or staff
+    created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+
+def require_creator(user):
+    # Only the first registered user (creator) or admin can manage allowed emails
+    return user.get("role") == "admin"
+
+@api_router.get("/admin/allowed-emails")
+async def list_allowed_emails(request: Request):
+    user = await get_current_user(request)
+    if not require_creator(user):
+        raise HTTPException(status_code=403, detail="Leje e pamjaftueshme")
+    emails = await db.allowed_emails.find({}, {"_id": 0}).to_list(100)
+    return emails
+
+@api_router.post("/admin/allowed-emails")
+async def add_allowed_email(request: Request):
+    user = await get_current_user(request)
+    if not require_creator(user):
+        raise HTTPException(status_code=403, detail="Leje e pamjaftueshme")
+    data = await request.json()
+    email = (data.get("email") or "").strip().lower()
+    role = (data.get("role") or "staff").strip().lower()
+    if not email or role not in ("admin", "staff"):
+        raise HTTPException(status_code=400, detail="Email dhe roli janë të detyrueshëm")
+    exists = await db.allowed_emails.find_one({"email": email})
+    if exists:
+        raise HTTPException(status_code=400, detail="Email ekziston")
+    await db.allowed_emails.insert_one({"email": email, "role": role, "created_at": datetime.now(timezone.utc).isoformat()})
+    return {"message": "Email u shtua"}
+
+@api_router.delete("/admin/allowed-emails")
+async def delete_allowed_email(request: Request):
+    user = await get_current_user(request)
+    if not require_creator(user):
+        raise HTTPException(status_code=403, detail="Leje e pamjaftueshme")
+    data = await request.json()
+    email = (data.get("email") or "").strip().lower()
+    if not email:
+        raise HTTPException(status_code=400, detail="Email është i detyrueshëm")
+    result = await db.allowed_emails.delete_one({"email": email})
+    if result.deleted_count == 0:
+        raise HTTPException(status_code=404, detail="Email nuk u gjet")
+    return {"message": "Email u fshi"}
+
+@api_router.put("/admin/allowed-emails")
+async def update_allowed_email(request: Request):
+    user = await get_current_user(request)
+    if not require_creator(user):
+        raise HTTPException(status_code=403, detail="Leje e pamjaftueshme")
+    data = await request.json()
+    email = (data.get("email") or "").strip().lower()
+    role = (data.get("role") or "staff").strip().lower()
+    if not email or role not in ("admin", "staff"):
+        raise HTTPException(status_code=400, detail="Email dhe roli janë të detyrueshëm")
+    result = await db.allowed_emails.update_one({"email": email}, {"$set": {"role": role}})
+    if result.matched_count == 0:
+        raise HTTPException(status_code=404, detail="Email nuk u gjet")
+    return {"message": "Roli u përditësua"}
 
 # Lightweight health probe (does not require DB to be fully ready)
 @app.get("/health")
@@ -325,6 +434,51 @@ async def reseed_users():
     # Reseed
     return await seed_users()
 
+@api_router.post("/auth/reset-admin")
+async def reset_admin_user():
+    """Reset admin user password - useful for troubleshooting"""
+    admin_email = os.getenv("ADMIN_EMAIL", "lulzimn995@gmail.com")
+    default_password = os.getenv("DEFAULT_PASSWORD", "MDental2024!")
+    
+    # Hash the password
+    hashed = bcrypt.hashpw(default_password.encode(), bcrypt.gensalt()).decode()
+    
+    # Update or create admin user
+    existing = await db.users.find_one({"email": admin_email.lower()})
+    
+    if existing:
+        # Update existing admin
+        await db.users.update_one(
+            {"email": admin_email.lower()},
+            {"$set": {
+                "password": hashed,
+                "role": "admin"
+            }}
+        )
+        return {
+            "status": "updated",
+            "email": admin_email.lower(),
+            "password": default_password,
+            "message": "Admin password updated successfully"
+        }
+    else:
+        # Create new admin
+        user_id = f"user_{uuid.uuid4().hex[:12]}"
+        await db.users.insert_one({
+            "user_id": user_id,
+            "email": admin_email.lower(),
+            "password": hashed,
+            "name": "Admin",
+            "role": "admin",
+            "created_at": datetime.now(timezone.utc).isoformat()
+        })
+        return {
+            "status": "created",
+            "email": admin_email.lower(),
+            "password": default_password,
+            "message": "Admin user created successfully"
+        }
+
 @api_router.post("/auth/login")
 async def login(request: Request, response: Response) -> Dict[str, Any]:
     """Login with email and password"""
@@ -394,6 +548,168 @@ async def logout(request: Request, response: Response) -> Dict[str, str]:
     
     response.delete_cookie(key="session_token", path="/")
     return {"message": "Dilni me sukses"}
+
+@api_router.post("/auth/forgot-password")
+async def forgot_password(request: Request) -> Dict[str, str]:
+    """Send password reset email"""
+    try:
+        body = await request.json()
+        email = (body.get("email") or "").strip().lower()
+        
+        if not email:
+            raise HTTPException(status_code=400, detail="Email është i detyrueshëm")
+        
+        # Check if user exists
+        user = await db.users.find_one({"email": email})
+        
+        # For security, always return success even if user doesn't exist
+        # This prevents email enumeration attacks
+        
+        if user:
+            # Generate reset token
+            reset_token = f"reset_{uuid.uuid4().hex}"
+            expires_at = datetime.now(timezone.utc) + timedelta(hours=1)
+            
+            # Store reset token
+            await db.password_resets.delete_many({"user_id": user["user_id"]})
+            await db.password_resets.insert_one({
+                "user_id": user["user_id"],
+                "reset_token": reset_token,
+                "expires_at": expires_at.isoformat(),
+                "created_at": datetime.now(timezone.utc).isoformat()
+            })
+            
+            # Send email with reset link
+            if SENDGRID_API_KEY:
+                try:
+                    frontend_url = os.getenv("FRONTEND_URL", "http://localhost:3006")
+                    reset_link = f"{frontend_url}/reset-password?token={reset_token}"
+                    
+                    message = Mail(
+                        from_email=Email("staffmdental@gmail.com", "M-Dental Stafi"),
+                        to_emails=To(email),
+                        subject="Rivendosni Fjalëkalimin - M-Dental",
+                        html_content=f"""
+                        <div style='font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;'>
+                            <h2 style='color: #0369a1;'>Rivendosni Fjalëkalimin</h2>
+                            <p>Përshëndetje,</p>
+                            <p>Kjo është një email për <b>ndryshim të fjalëkalimit</b> të llogarisë suaj në M-Dental.</p>
+                            <p>Klikoni butonin më poshtë për të vendosur një fjalëkalim të ri:</p>
+                            <p style='margin: 30px 0;'>
+                                <a href='{reset_link}'
+                                   style='background-color: #0369a1; color: white; padding: 12px 24px; text-decoration: none; border-radius: 6px; display: inline-block;'>
+                                    Vendos Fjalëkalim të Ri
+                                </a>
+                            </p>
+                            <p style='color: #666; font-size: 14px;'>
+                                Ky link është i vlefshëm vetëm për 1 orë.
+                            </p>
+                            <p style='color: #666; font-size: 14px;'>
+                                Nëse nuk e keni kërkuar ju këtë ndryshim, mund ta injoroni këtë email.
+                            </p>
+                            <hr style='border: none; border-top: 1px solid #ddd; margin: 30px 0;'>
+                            <p style='color: #999; font-size: 12px;'>
+                                © 2026 M-Dental. Të gjitha të drejtat e rezervuara.
+                            </p>
+                        </div>
+                        """
+                    )
+                    
+                    sg = SendGridAPIClient(SENDGRID_API_KEY)
+                    sg.send(message)
+                    logger.info(f"Password reset email sent to {email}")
+                except Exception as e:
+                    logger.error(f"Failed to send reset email to {email}: {e}")
+                    # Don't raise error to prevent information disclosure
+        
+        return {"message": "Nëse email-i ekziston, do të merrni një link për rivendosje"}
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Forgot password error: {e}")
+        raise HTTPException(status_code=500, detail="Gabim gjatë procesimit të kërkesës")
+
+@api_router.post("/auth/verify-reset-token")
+async def verify_reset_token(request: Request) -> Dict[str, str]:
+    """Verify if reset token is valid"""
+    try:
+        body = await request.json()
+        token = body.get("token")
+        
+        if not token:
+            raise HTTPException(status_code=400, detail="Token është i detyrueshëm")
+        
+        reset_record = await db.password_resets.find_one({"reset_token": token})
+        if not reset_record:
+            raise HTTPException(status_code=400, detail="Token i pavlefshëm")
+        
+        # Check expiry
+        expires_at = reset_record.get("expires_at")
+        if isinstance(expires_at, str):
+            expires_at = datetime.fromisoformat(expires_at)
+        if hasattr(expires_at, 'tzinfo') and expires_at.tzinfo is None:
+            expires_at = expires_at.replace(tzinfo=timezone.utc)
+        if isinstance(expires_at, datetime) and expires_at < datetime.now(timezone.utc):
+            raise HTTPException(status_code=400, detail="Token ka skaduar")
+        
+        return {"message": "Token i vlefshëm"}
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Verify token error: {e}")
+        raise HTTPException(status_code=500, detail="Gabim gjatë verifikimit të token")
+
+@api_router.post("/auth/reset-password")
+async def reset_password(request: Request) -> Dict[str, str]:
+    """Reset password using token"""
+    try:
+        body = await request.json()
+        token = body.get("token")
+        new_password = body.get("new_password")
+        
+        if not token or not new_password:
+            raise HTTPException(status_code=400, detail="Token dhe fjalëkalimi i ri janë të detyrueshëm")
+        
+        if len(new_password) < 6:
+            raise HTTPException(status_code=400, detail="Fjalëkalimi duhet të jetë të paktën 6 karaktere")
+        
+        # Find reset record
+        reset_record = await db.password_resets.find_one({"reset_token": token})
+        if not reset_record:
+            raise HTTPException(status_code=400, detail="Token i pavlefshëm")
+        
+        # Check expiry
+        expires_at = reset_record.get("expires_at")
+        if isinstance(expires_at, str):
+            expires_at = datetime.fromisoformat(expires_at)
+        if hasattr(expires_at, 'tzinfo') and expires_at.tzinfo is None:
+            expires_at = expires_at.replace(tzinfo=timezone.utc)
+        if isinstance(expires_at, datetime) and expires_at < datetime.now(timezone.utc):
+            raise HTTPException(status_code=400, detail="Token ka skaduar")
+        
+        # Update password
+        hashed = bcrypt.hashpw(new_password.encode(), bcrypt.gensalt()).decode()
+        await db.users.update_one(
+            {"user_id": reset_record["user_id"]},
+            {"$set": {"password": hashed}}
+        )
+        
+        # Delete reset token
+        await db.password_resets.delete_many({"user_id": reset_record["user_id"]})
+        
+        # Delete all sessions for this user (force re-login)
+        await db.user_sessions.delete_many({"user_id": reset_record["user_id"]})
+        
+        logger.info(f"Password reset successfully for user {reset_record['user_id']}")
+        return {"message": "Fjalëkalimi u rivendos me sukses"}
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Reset password error: {e}")
+        raise HTTPException(status_code=500, detail="Gabim gjatë rivendosjes së fjalëkalimit")
     
     return user
 
@@ -1597,23 +1913,70 @@ async def get_invoice_print_data(invoice_id: str, request: Request) -> Dict[str,
     rate_doc = await db.exchange_rates.find_one({}, {"_id": 0}, sort=[("updated_at", -1)])
     exchange_rate = rate_doc["eur_to_mkd"] if rate_doc else 61.5
     
+    # Load clinic settings (fallback defaults)
+    clinic_doc = await db.settings.find_one({"type": "clinic"}, {"_id": 0}) or {}
+    clinic_info = {
+        "name": clinic_doc.get("clinic_name", "M-Dental"),
+        "address": clinic_doc.get("address", "Adresa e Klinikës"),
+        "phone": clinic_doc.get("phone", "+389 XX XXX XXX"),
+        "email": clinic_doc.get("email", "info@m-dental.com"),
+        "business_number": clinic_doc.get("business_number", "")
+    }
+
     return {
         "invoice": invoice,
         "patient": patient,
         "exchange_rate": exchange_rate,
-        "clinic": {
-            "name": "M-Dental",
-            "address": "Adresa e Klinikës",
-            "phone": "+389 XX XXX XXX",
-            "email": "info@m-dental.com"
-        }
+        "clinic": clinic_info
     }
+
+@api_router.get("/settings/clinic")
+async def get_clinic_settings(request: Request) -> Dict[str, Any]:
+    """Get clinic/business info"""
+    await get_current_user(request)
+    clinic_doc = await db.settings.find_one({"type": "clinic"}, {"_id": 0})
+    return {
+        "clinic_name": clinic_doc.get("clinic_name", "M-Dental") if clinic_doc else "M-Dental",
+        "business_number": clinic_doc.get("business_number", "") if clinic_doc else "",
+        "address": clinic_doc.get("address", "Adresa e Klinikës") if clinic_doc else "Adresa e Klinikës",
+        "phone": clinic_doc.get("phone", "+389 XX XXX XXX") if clinic_doc else "+389 XX XXX XXX",
+        "email": clinic_doc.get("email", "info@m-dental.com") if clinic_doc else "info@m-dental.com"
+    }
+
+@api_router.put("/settings/clinic")
+async def update_clinic_settings(request: Request) -> Dict[str, Any]:
+    """Update clinic/business info (admin only)"""
+    await require_admin(request)
+    body = await request.json()
+    clinic_name = (body.get("clinic_name") or "").strip()
+    business_number = (body.get("business_number") or "").strip()
+    address = (body.get("address") or "").strip()
+    phone = (body.get("phone") or "").strip()
+    email = (body.get("email") or "").strip()
+
+    if not clinic_name:
+        raise HTTPException(status_code=400, detail="Emri i ordinancës është i detyrueshëm")
+
+    await db.settings.update_one(
+        {"type": "clinic"},
+        {"$set": {
+            "clinic_name": clinic_name,
+            "business_number": business_number,
+            "address": address,
+            "phone": phone,
+            "email": email,
+            "type": "clinic"
+        }},
+        upsert=True
+    )
+
+    return {"message": "Të dhënat u përditësuan me sukses"}
 
 # Include router BEFORE middleware
 app.include_router(api_router)
 
 # CORS configuration - After router
-default_origins = "http://localhost:3000,http://127.0.0.1:3000,http://localhost:3003,http://127.0.0.1:3003,http://localhost:5173,http://127.0.0.1:5173"
+default_origins = "http://localhost:3000,http://127.0.0.1:3000,http://localhost:3003,http://127.0.0.1:3003,http://localhost:3006,http://127.0.0.1:3006,http://localhost:5173,http://127.0.0.1:5173"
 app.add_middleware(
     CORSMiddleware,
     allow_credentials=True,
