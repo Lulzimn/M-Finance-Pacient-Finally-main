@@ -16,7 +16,7 @@ import httpx
 from io import BytesIO
 from sendgrid import SendGridAPIClient
 from sendgrid.helpers.mail import Mail, Email, To, Content
-from authlib.integrations.starlette_client import OAuth
+import bcrypt
 
 ROOT_DIR = Path(__file__).parent
 load_dotenv(ROOT_DIR / '.env')
@@ -32,31 +32,14 @@ db = client[os.environ['DB_NAME']]
 # Create the main app
 app = FastAPI(title="M-Dental Financial Management")
 
-# Add session middleware (required for OAuth)
-app.add_middleware(
-    SessionMiddleware,
-    secret_key=os.environ.get('SESSION_SECRET', 'dev-secret-key-change-in-production')
-)
-
-# OAuth Configuration
-oauth = OAuth()
-
-# Google OAuth
-oauth.register(
-    name='google',
-    client_id=os.environ.get('GOOGLE_CLIENT_ID'),
-    client_secret=os.environ.get('GOOGLE_CLIENT_SECRET'),
-    server_metadata_url='https://accounts.google.com/.well-known/openid-configuration',
-    client_kwargs={'scope': 'openid email profile'}
-)
-
 # Lockdown mode to disable all non-auth endpoints during personalization
 LOCKDOWN_MODE = os.environ.get('LOCKDOWN_MODE', 'false').lower() == 'true'
 LOCKDOWN_ALLOWED_PATHS = {
-    "/api/auth/session",
+    "/api/auth/login",
     "/api/auth/logout",
     "/api/auth/me",
-    "/api/auth/dev-login",
+    "/api/auth/seed",
+    "/api/auth/reseed",
 }
 
 # Create router with /api prefix
@@ -302,200 +285,99 @@ async def log_activity(user_id: str, user_name: str, action: str, entity_type: s
 
 # ==================== AUTH ENDPOINTS ====================
 
-@api_router.get("/auth/google/login")
-async def google_login(request: Request):
-    """Initiate Google OAuth login"""
-    redirect_uri = request.url_for('google_callback')
-    return await oauth.google.authorize_redirect(request, redirect_uri)
-
-@api_router.get("/auth/google/callback")
-async def google_callback(request: Request, response: Response):
-    """Handle Google OAuth callback"""
-    try:
-        token = await oauth.google.authorize_access_token(request)
-        user_data = token.get('userinfo')
-        
-        if not user_data:
-            raise HTTPException(status_code=401, detail="Nuk u morën të dhënat e përdoruesit")
-        
-        # Get or create user
-        user_id = await process_oauth_user(
-            email=user_data.get('email'),
-            name=user_data.get('name'),
-            picture=user_data.get('picture')
-        )
-        
-        # Create session
-        session_token = f"session_{uuid.uuid4().hex}"
-        expires_at = datetime.now(timezone.utc) + timedelta(days=7)
-        
-        await db.user_sessions.delete_many({"user_id": user_id})
-        await db.user_sessions.insert_one({
-            "user_id": user_id,
-            "session_token": session_token,
-            "expires_at": expires_at.isoformat(),
-            "created_at": datetime.now(timezone.utc).isoformat()
-        })
-        
-        # Set cookie
-        samesite_value = "none" if IS_PRODUCTION else "lax"
-        response.set_cookie(
-            key="session_token",
-            value=session_token,
-            httponly=True,
-            secure=IS_PRODUCTION,
-            samesite=samesite_value,
-            path="/",
-            max_age=7*24*60*60
-        )
-        
-        # Get user role and redirect
-        user = await db.users.find_one({"user_id": user_id}, {"_id": 0})
-        redirect_path = "/admin" if user.get("role") == "admin" else "/staff"
-        
-        # Redirect to frontend
-        frontend_url = os.environ.get('FRONTEND_URL', 'http://localhost:3000')
-        return RedirectResponse(url=f"{frontend_url}{redirect_path}")
-        
-    except Exception as e:
-        logger.error(f"Google auth error: {e}")
-        raise HTTPException(status_code=401, detail=f"Gabim në autentikim: {str(e)}")
-
-@api_router.get("/auth/microsoft/login")
-async def microsoft_login(request: Request):
-    """Initiate Microsoft OAuth login"""
-    redirect_uri = request.url_for('microsoft_callback')
-    return await oauth.microsoft.authorize_redirect(request, redirect_uri)
-
-@api_router.get("/auth/microsoft/callback")
-async def microsoft_callback(request: Request, response: Response):
-    """Handle Microsoft OAuth callback"""
-    try:
-        token = await oauth.microsoft.authorize_access_token(request)
-        
-        # Get user info from Microsoft Graph API
-        async with httpx.AsyncClient() as client_http:
-            resp = await client_http.get(
-                'https://graph.microsoft.com/v1.0/me',
-                headers={'Authorization': f'Bearer {token["access_token"]}'}
-            )
-            if resp.status_code != 200:
-                raise HTTPException(status_code=401, detail="Nuk u morën të dhënat e përdoruesit")
-            
-            user_data = resp.json()
-        
-        # Get or create user
-        user_id = await process_oauth_user(
-            email=user_data.get('mail') or user_data.get('userPrincipalName'),
-            name=user_data.get('displayName'),
-            picture=None  # Microsoft doesn't provide picture in basic scope
-        )
-        
-        # Create session
-        session_token = f"session_{uuid.uuid4().hex}"
-        expires_at = datetime.now(timezone.utc) + timedelta(days=7)
-        
-        await db.user_sessions.delete_many({"user_id": user_id})
-        await db.user_sessions.insert_one({
-            "user_id": user_id,
-            "session_token": session_token,
-            "expires_at": expires_at.isoformat(),
-            "created_at": datetime.now(timezone.utc).isoformat()
-        })
-        
-        # Set cookie
-        samesite_value = "none" if IS_PRODUCTION else "lax"
-        response.set_cookie(
-            key="session_token",
-            value=session_token,
-            httponly=True,
-            secure=IS_PRODUCTION,
-            samesite=samesite_value,
-            path="/",
-            max_age=7*24*60*60
-        )
-        
-        # Get user role and redirect
-        user = await db.users.find_one({"user_id": user_id}, {"_id": 0})
-        redirect_path = "/admin" if user.get("role") == "admin" else "/staff"
-        
-        # Redirect to frontend
-        frontend_url = os.environ.get('FRONTEND_URL', 'http://localhost:3000')
-        return RedirectResponse(url=f"{frontend_url}{redirect_path}")
-        
-    except Exception as e:
-        logger.error(f"Microsoft auth error: {e}")
-        raise HTTPException(status_code=401, detail=f"Gabim në autentikim: {str(e)}")
-
-async def process_oauth_user(email: str, name: str, picture: Optional[str] = None) -> str:
-    """Process OAuth user - create or update user and return user_id"""
-    # Check if user exists
-    existing_user = await db.users.find_one({"email": email}, {"_id": 0})
+@api_router.post("/auth/seed")
+async def seed_users():
+    """Seed initial admin and staff users"""
+    admin_email = os.getenv("ADMIN_EMAIL")
+    staff_email = os.getenv("STAFF_EMAIL")
+    default_password = os.getenv("DEFAULT_PASSWORD", "mdental123")
     
-    if existing_user:
-        user_id = existing_user["user_id"]
-        # Update user data
-        await db.users.update_one(
-            {"user_id": user_id},
-            {"$set": {
-                "name": name,
-                "picture": picture
-            }}
-        )
-        return user_id
-    else:
-        # Check if this is the first user (make them admin) or if email is in admin list
-        users_count = await db.users.count_documents({})
-        is_admin_email = email in ADMIN_EMAILS
-        is_first_user = users_count == 0
-        
-        # First user becomes admin automatically
-        if is_first_user:
+    if not admin_email or not staff_email:
+        raise HTTPException(status_code=400, detail="Set ADMIN_EMAIL and STAFF_EMAIL in environment")
+    
+    seeded = []
+    
+    for email, role in [(admin_email, "admin"), (staff_email, "staff")]:
+        email_lower = email.strip().lower()
+        exists = await db.users.find_one({"email": email_lower})
+        if not exists:
+            hashed = bcrypt.hashpw(default_password.encode(), bcrypt.gensalt()).decode()
             user_id = f"user_{uuid.uuid4().hex[:12]}"
-            new_user = {
+            await db.users.insert_one({
                 "user_id": user_id,
-                "email": email,
-                "name": name,
-                "picture": picture,
-                "role": "admin",
+                "email": email_lower,
+                "password": hashed,
+                "name": role.title(),
+                "role": role,
                 "created_at": datetime.now(timezone.utc).isoformat()
-            }
-            await db.users.insert_one(new_user)
-            await log_activity(user_id, name, "REGJISTRUAR", "user", user_id, "Përdorues i parë u regjistrua si admin")
-            return user_id
-        elif is_admin_email:
-            # Email is in admin list - make them admin
-            user_id = f"user_{uuid.uuid4().hex[:12]}"
-            new_user = {
-                "user_id": user_id,
-                "email": email,
-                "name": name,
-                "picture": picture,
-                "role": "admin",
-                "created_at": datetime.now(timezone.utc).isoformat()
-            }
-            await db.users.insert_one(new_user)
-            await log_activity(user_id, name, "REGJISTRUAR", "user", user_id, "Përdorues u regjistrua si admin (email i aprovuar)")
-            return user_id
-        else:
-            # All other users go to pending - need admin approval
-            user_id = f"user_{uuid.uuid4().hex[:12]}"
-            new_user = {
-                "user_id": user_id,
-                "email": email,
-                "name": name,
-                "picture": picture,
-                "role": "pending",
-                "created_at": datetime.now(timezone.utc).isoformat()
-            }
-            await db.users.insert_one(new_user)
-            await log_activity(user_id, name, "REGJISTRUAR_PRITJE", "user", user_id, "Përdorues në pritje për aprovim")
-            raise HTTPException(status_code=403, detail="Llogaria juaj është në pritje për aprovim nga administratori")
+            })
+            seeded.append({"email": email_lower, "role": role})
+    
+    return {"status": "ok", "seeded": seeded}
 
-@api_router.get("/auth/session")
-async def process_session(session_id: str, response: Response) -> Dict[str, Any]:
-    """Legacy endpoint - kept for backwards compatibility but not used"""
-    raise HTTPException(status_code=410, detail="Kjo metodë e autentikimit nuk përdoret më. Ju lutemi përdorni Google OAuth.")
+@api_router.post("/auth/reseed")
+async def reseed_users():
+    """Delete all users and reseed (dev only)"""
+    # Delete all existing users and sessions
+    await db.users.delete_many({})
+    await db.user_sessions.delete_many({})
+    
+    # Reseed
+    return await seed_users()
+
+@api_router.post("/auth/login")
+async def login(request: Request, response: Response) -> Dict[str, Any]:
+    """Login with email and password"""
+    try:
+        body = await request.json()
+        email = (body.get("email") or "").strip().lower()
+        password = body.get("password") or ""
+        
+        if not email or not password:
+            raise HTTPException(status_code=400, detail="Email dhe fjalëkalim janë të detyrueshme")
+        
+        user = await db.users.find_one({"email": email})
+        if not user or not user.get("password"):
+            raise HTTPException(status_code=401, detail="Email ose fjalëkalim i pasaktë")
+        
+        if not bcrypt.checkpw(password.encode(), user["password"].encode()):
+            raise HTTPException(status_code=401, detail="Email ose fjalëkalim i pasaktë")
+        
+        # Create session
+        session_token = f"session_{uuid.uuid4().hex}"
+        expires_at = datetime.now(timezone.utc) + timedelta(days=7)
+        
+        await db.user_sessions.delete_many({"user_id": user["user_id"]})
+        await db.user_sessions.insert_one({
+            "user_id": user["user_id"],
+            "session_token": session_token,
+            "expires_at": expires_at.isoformat(),
+            "created_at": datetime.now(timezone.utc).isoformat()
+        })
+        
+        # Set cookie
+        samesite_value = "none" if IS_PRODUCTION else "lax"
+        response.set_cookie(
+            key="session_token",
+            value=session_token,
+            httponly=True,
+            secure=IS_PRODUCTION,
+            samesite=samesite_value,
+            path="/",
+            max_age=7*24*60*60
+        )
+        
+        return {
+            "user_id": user["user_id"],
+            "email": user["email"],
+            "name": user["name"],
+            "role": user["role"]
+        }
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Login error: {e}")
+        raise HTTPException(status_code=500, detail="Gabim në kyçje")
 
 @api_router.get("/auth/me")
 async def get_me(request: Request) -> Dict[str, Any]:
@@ -512,86 +394,6 @@ async def logout(request: Request, response: Response) -> Dict[str, str]:
     
     response.delete_cookie(key="session_token", path="/")
     return {"message": "Dilni me sukses"}
-
-@api_router.post("/auth/dev-login")
-async def dev_login(email: str, name: str, response: Response) -> Dict[str, Any]:
-    """Development login endpoint - bypasses Emergent Auth (DEV ONLY)"""
-    if os.getenv("LOCKDOWN_MODE") == "true":
-        raise HTTPException(status_code=403, detail="Të paautorizuar")
-    
-    # Check if user exists
-    existing_user = await db.users.find_one({"email": email}, {"_id": 0})
-    
-    if existing_user:
-        user_id = existing_user["user_id"]
-        # Update user data
-        await db.users.update_one(
-            {"user_id": user_id},
-            {"$set": {
-                "name": name,
-            }}
-        )
-    else:
-        # Check if this is the first user (make them admin) or if email is in admin list
-        users_count = await db.users.count_documents({})
-        is_admin_email = email in ADMIN_EMAILS
-        is_first_user = users_count == 0
-        
-        # First user becomes admin automatically
-        if is_first_user or is_admin_email:
-            user_id = f"user_{uuid.uuid4().hex[:12]}"
-            new_user = {
-                "user_id": user_id,
-                "email": email,
-                "name": name,
-                "picture": None,
-                "role": "admin",
-                "created_at": datetime.now(timezone.utc).isoformat()
-            }
-            await db.users.insert_one(new_user)
-            await log_activity(user_id, name, "REGJISTRUAR", "user", user_id, "Përdorues u regjistrua si admin (dev login)")
-        else:
-            # All other users go to staff
-            user_id = f"user_{uuid.uuid4().hex[:12]}"
-            new_user = {
-                "user_id": user_id,
-                "email": email,
-                "name": name,
-                "picture": None,
-                "role": "staff",
-                "created_at": datetime.now(timezone.utc).isoformat()
-            }
-            await db.users.insert_one(new_user)
-            await log_activity(user_id, name, "REGJISTRUAR", "user", user_id, "Përdorues u regjistrua si staff (dev login)")
-    
-    # Create session
-    session_token = f"session_{uuid.uuid4().hex}"
-    expires_at = datetime.now(timezone.utc) + timedelta(days=7)
-    
-    await db.user_sessions.delete_many({"user_id": user_id})
-    await db.user_sessions.insert_one({
-        "user_id": user_id,
-        "session_token": session_token,
-        "expires_at": expires_at.isoformat(),
-        "created_at": datetime.now(timezone.utc).isoformat()
-    })
-    
-    # Set cookie
-    samesite_value = "none" if IS_PRODUCTION else "lax"
-    response.set_cookie(
-        key="session_token",
-        value=session_token,
-        httponly=True,
-        secure=IS_PRODUCTION,  # Only secure in production
-        samesite=samesite_value,
-        path="/",
-        max_age=7*24*60*60
-    )
-    
-    # Get user with role
-    user = await db.users.find_one({"user_id": user_id}, {"_id": 0})
-    if not user:
-        raise HTTPException(status_code=500, detail="Gabim në krijimin e përdoruesit")
     
     return user
 
@@ -1833,3 +1635,9 @@ async def lockdown_middleware(request: Request, call_next):
 @app.on_event("shutdown")
 async def shutdown_db_client():
     client.close()
+
+# Run server if executed directly
+if __name__ == "__main__":
+    import uvicorn
+    port = int(os.environ.get("PORT", 8000))
+    uvicorn.run(app, host="0.0.0.0", port=port, log_level="info")

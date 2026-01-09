@@ -281,9 +281,9 @@ export default function PatientsPage({ user, setUser, isStaff = false }) {
 
         {/* Add/Edit Dialog */}
         <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
-          <DialogContent className="sm:max-w-md">
+          <DialogContent className="sm:max-w-md bg-slate-50">
             <DialogHeader>
-              <DialogTitle>{selectedPatient ? "Ndrysho Pacientin" : "Shto Pacient të Ri"}</DialogTitle>
+              <DialogTitle className="text-slate-900">{selectedPatient ? "Ndrysho Pacientin" : "Shto Pacient të Ri"}</DialogTitle>
             </DialogHeader>
             <form onSubmit={handleSubmit} className="space-y-4">
               <div className="grid grid-cols-2 gap-4">
@@ -362,11 +362,11 @@ export default function PatientsPage({ user, setUser, isStaff = false }) {
 
         {/* Delete Confirmation Dialog */}
         <Dialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
-          <DialogContent className="sm:max-w-md">
+          <DialogContent className="sm:max-w-md bg-slate-50">
             <DialogHeader>
-              <DialogTitle>Konfirmo Fshirjen</DialogTitle>
+              <DialogTitle className="text-slate-900">Konfirmo Fshirjen</DialogTitle>
             </DialogHeader>
-            <p className="text-slate-600">
+            <p className="text-slate-700 font-medium">
               Jeni të sigurt që doni të fshini pacientin <strong>{selectedPatient?.emri} {selectedPatient?.mbiemri}</strong>?
             </p>
             <DialogFooter>

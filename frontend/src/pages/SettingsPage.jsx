@@ -356,7 +356,7 @@ export default function SettingsPage({ user, setUser }) {
 
         {/* Delete User Dialog */}
         <Dialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
-          <DialogContent className="sm:max-w-md">
+          <DialogContent className="sm:max-w-md bg-slate-50">
             <DialogHeader>
               <DialogTitle>Konfirmo Fshirjen e Përdoruesit</DialogTitle>
             </DialogHeader>

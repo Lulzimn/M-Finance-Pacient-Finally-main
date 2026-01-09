@@ -1,6 +1,6 @@
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect } from "react";
 import "@/App.css";
-import { BrowserRouter, Routes, Route, Navigate, useLocation, useNavigate } from "react-router-dom";
+import { BrowserRouter, Routes, Route, Navigate, useNavigate } from "react-router-dom";
 import axios from "axios";
 
 // Pages
@@ -26,10 +26,9 @@ const ProtectedRoute = ({ children, requiredRole }) => {
   const [isAuthenticated, setIsAuthenticated] = useState(null);
   const [user, setUser] = useState(null);
   const navigate = useNavigate();
-  const location = useLocation();
 
   useEffect(() => {
-    // First, try to get user from sessionStorage
+    // Check if user exists in sessionStorage
     const savedUser = sessionStorage.getItem('user');
     if (savedUser) {
       try {
@@ -37,19 +36,16 @@ const ProtectedRoute = ({ children, requiredRole }) => {
         setUser(userData);
         setIsAuthenticated(true);
         return;
-      } catch (error) {
+      } catch (err) {
+        console.error("Error parsing user data:", err);
         sessionStorage.removeItem('user');
+        setIsAuthenticated(false);
+        navigate("/login");
+        return;
       }
     }
 
-    // If user data passed from AuthCallback, use it
-    if (location.state?.user) {
-      setUser(location.state.user);
-      sessionStorage.setItem('user', JSON.stringify(location.state.user));
-      setIsAuthenticated(true);
-      return;
-    }
-
+    // If no user in storage, verify with backend
     const checkAuth = async () => {
       try {
         const response = await axios.get(`${API}/auth/me`, {
@@ -58,7 +54,8 @@ const ProtectedRoute = ({ children, requiredRole }) => {
         setUser(response.data);
         sessionStorage.setItem('user', JSON.stringify(response.data));
         setIsAuthenticated(true);
-      } catch (error) {
+      } catch (err) {
+        console.error("Auth check failed:", err);
         sessionStorage.removeItem('user');
         setIsAuthenticated(false);
         navigate("/login");
@@ -66,8 +63,9 @@ const ProtectedRoute = ({ children, requiredRole }) => {
     };
 
     checkAuth();
-  }, [navigate, location.state]);
+  }, [navigate]);
 
+  // Loading state
   if (isAuthenticated === null) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-slate-50">
@@ -76,17 +74,15 @@ const ProtectedRoute = ({ children, requiredRole }) => {
     );
   }
 
+  // Not authenticated
   if (!isAuthenticated) {
     return <Navigate to="/login" replace />;
   }
 
   // Check role
   if (requiredRole && user?.role !== requiredRole) {
-    if (user?.role === "admin") {
-      return <Navigate to="/admin" replace />;
-    } else {
-      return <Navigate to="/staff" replace />;
-    }
+    // Redirect to appropriate dashboard if trying to access unauthorized route
+    return <Navigate to={user?.role === "admin" ? "/admin" : "/staff"} replace />;
   }
 
   return children({ user, setUser });

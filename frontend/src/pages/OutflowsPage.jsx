@@ -230,9 +230,9 @@ export default function OutflowsPage({ user, setUser }) {
 
         {/* Add/Edit Dialog */}
         <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
-          <DialogContent className="sm:max-w-md">
+          <DialogContent className="sm:max-w-md bg-slate-50">
             <DialogHeader>
-              <DialogTitle>{selectedOutflow ? "Ndrysho Daljen" : "Regjistro Dalje të Re"}</DialogTitle>
+              <DialogTitle className="text-slate-900">{selectedOutflow ? "Ndrysho Daljen" : "Regjistro Dalje të Re"}</DialogTitle>
             </DialogHeader>
             <form onSubmit={handleSubmit} className="space-y-4">
               <div className="form-group">
@@ -274,9 +274,9 @@ export default function OutflowsPage({ user, setUser }) {
 
         {/* Delete Dialog */}
         <Dialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
-          <DialogContent className="sm:max-w-md">
-            <DialogHeader><DialogTitle>Konfirmo Fshirjen</DialogTitle></DialogHeader>
-            <p className="text-slate-600">Jeni të sigurt që doni të fshini këtë dalje?</p>
+          <DialogContent className="sm:max-w-md bg-slate-50">
+            <DialogHeader><DialogTitle className="text-slate-900">Konfirmo Fshirjen</DialogTitle></DialogHeader>
+            <p className="text-slate-700 font-medium">Jeni të sigurt që doni të fshini këtë dalje?</p>
             <DialogFooter>
               <Button type="button" variant="outline" onClick={() => setDeleteDialogOpen(false)}>Anulo</Button>
               <Button type="button" variant="destructive" onClick={handleDelete} data-testid="confirm-delete-outflow-btn">Fshi</Button>

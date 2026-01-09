@@ -381,7 +381,7 @@ export default function FinancatPage({ user, setUser }) {
 
         {/* Add/Edit Dialog */}
         <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
-          <DialogContent className="sm:max-w-lg">
+          <DialogContent className="sm:max-w-lg bg-slate-50">
             <DialogHeader>
               <DialogTitle>{selectedItem ? "Ndrysho Transaksionin" : "Regjistro Transaksion të Ri"}</DialogTitle>
             </DialogHeader>
@@ -513,7 +513,7 @@ export default function FinancatPage({ user, setUser }) {
 
         {/* Delete Dialog */}
         <Dialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
-          <DialogContent className="sm:max-w-md">
+          <DialogContent className="sm:max-w-md bg-slate-50">
             <DialogHeader><DialogTitle>Konfirmo Fshirjen</DialogTitle></DialogHeader>
             <p className="text-slate-600">Jeni të sigurt që doni të fshini këtë transaksion?</p>
             <DialogFooter>

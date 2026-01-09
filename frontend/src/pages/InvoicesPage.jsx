@@ -503,7 +503,7 @@ export default function InvoicesPage({ user, setUser, isStaff = false }) {
 
         {/* Invoice Form Dialog */}
         <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
-          <DialogContent className="sm:max-w-2xl max-h-[90vh] overflow-y-auto">
+          <DialogContent className="sm:max-w-2xl max-h-[90vh] overflow-y-auto bg-slate-50">
             <DialogHeader>
               <DialogTitle className="text-xl font-semibold">
                 {selectedInvoice ? 'Ndrysho Faturën' : 'Faturë e Re'}
@@ -656,7 +656,7 @@ export default function InvoicesPage({ user, setUser, isStaff = false }) {
 
         {/* Preview Dialog */}
         <Dialog open={previewOpen} onOpenChange={setPreviewOpen}>
-          <DialogContent className="sm:max-w-3xl max-h-[90vh] overflow-y-auto">
+          <DialogContent className="sm:max-w-3xl max-h-[90vh] overflow-y-auto bg-slate-50">
             <DialogHeader>
               <div className="flex items-center justify-between">
                 <DialogTitle>Fatura {previewInvoice?.invoice_number}</DialogTitle>
@@ -729,7 +729,7 @@ export default function InvoicesPage({ user, setUser, isStaff = false }) {
 
         {/* Delete Dialog */}
         <Dialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
-          <DialogContent className="sm:max-w-md">
+          <DialogContent className="sm:max-w-md bg-slate-50">
             <DialogHeader><DialogTitle>Konfirmo Fshirjen</DialogTitle></DialogHeader>
             <p className="text-slate-600">Jeni të sigurt që doni të fshini faturën <strong>{selectedInvoice?.invoice_number}</strong>?</p>
             <DialogFooter>

@@ -372,9 +372,9 @@ export default function AppointmentsPage({ user, setUser, isStaff = false }) {
 
         {/* Add/Edit Dialog */}
         <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
-          <DialogContent className="sm:max-w-lg">
+          <DialogContent className="sm:max-w-lg bg-slate-50">
             <DialogHeader>
-              <DialogTitle>{selectedAppointment ? "Ndrysho Terminin" : "Cakto Termin të Ri"}</DialogTitle>
+              <DialogTitle className="text-slate-900">{selectedAppointment ? "Ndrysho Terminin" : "Cakto Termin të Ri"}</DialogTitle>
             </DialogHeader>
             <form onSubmit={handleSubmit} className="space-y-4">
               
@@ -611,9 +611,9 @@ export default function AppointmentsPage({ user, setUser, isStaff = false }) {
 
         {/* Delete Dialog */}
         <Dialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
-          <DialogContent className="sm:max-w-md">
-            <DialogHeader><DialogTitle>Konfirmo Fshirjen</DialogTitle></DialogHeader>
-            <p className="text-slate-600">Jeni të sigurt që doni të fshini këtë termin?</p>
+          <DialogContent className="sm:max-w-md bg-slate-50">
+            <DialogHeader><DialogTitle className="text-slate-900">Konfirmo Fshirjen</DialogTitle></DialogHeader>
+            <p className="text-slate-700 font-medium">Jeni të sigurt që doni të fshini këtë termin?</p>
             <DialogFooter>
               <Button type="button" variant="outline" onClick={() => setDeleteDialogOpen(false)}>Anulo</Button>
               <Button type="button" variant="destructive" onClick={handleDelete} data-testid="confirm-delete-appointment-btn">Fshi</Button>
